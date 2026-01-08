@@ -7,9 +7,12 @@ const firebaseConfig = {
     appId: "1:612919891675:web:3adef562f38e26c80e5efe",
     measurementId: "G-7BW8NQ1VKC"
 };
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 
 const db = firebase.firestore();
+const loginUrl = new URL('login/index.html', window.location.href).toString();
 
 let adminMode = false;
 
@@ -69,6 +72,6 @@ firebase.auth().onAuthStateChanged(async function(user) {
     }, { merge: true });
     await renderData();
   } else {
-    window.location.href = "/login";
+    window.location.replace(loginUrl);
   }
 });
