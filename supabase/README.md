@@ -8,12 +8,18 @@
 ## 2) Configure Auth (Google)
 
 - Enable Google provider in Supabase Auth settings.
+- In Authentication -> URL Configuration, set Site URL to:
+  - `https://scioporn.netlify.app`
 - Set allowed redirect URLs to include your deployed app URL(s), e.g.:
+  - `https://scioporn.netlify.app/login/index.html`
+  - `https://scioporn.netlify.app/login/`
+  - `https://scioporn.netlify.app/index.html`
   - `http://localhost:5500/login/index.html`
   - `http://localhost:5500/index.html`
   - `http://127.0.0.1:5500/login/index.html`
   - `http://127.0.0.1:5500/index.html`
-  - Your production URL(s)
+
+Do not leave Site URL set to `http://localhost:3000`; Supabase uses Site URL as the fallback redirect after OAuth.
 
 Note: OAuth redirects do not work from `file://` URLs. Serve the site via HTTP (any simple static server is fine).
 
