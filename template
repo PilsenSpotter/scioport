@@ -1,0 +1,6 @@
+if (email.endsWith('@scioskola.cz')) {
+              window.location.href = "/";
+            } else {
+              firebase.auth().signOut();
+              alert("Please login with your ScioŠkola account");
+            }

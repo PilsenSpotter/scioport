@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login with Google</title>
+    <link rel="stylesheet" href="../Style/login.css?v=2026-03">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../supabase/config.js?v=2026-05-06-auth2"></script>
+    <script src="../supabase/client.js?v=2026-05-06-auth2"></script>
+</head>
+<body>
+    <main>
+        <div class="login">
+            <h1>Please Log in below</h1>
+            <button class="login-button">
+                <span>Sign-in with Scioskola</span>
+            </button>
+        </div>
+    </main>
+
+    <script>
+      const homeUrl = new URL("../index.html", window.location.href).toString();
+      const loginCallbackUrl = new URL("index.html", window.location.href).toString();
+
+      function getUserEmail(user) {
+        return user && user.email ? String(user.email).trim().toLowerCase() : "";
+      }
+
+      function isAllowedDomain(email) {
+        const domain = String(window.SCIO_ALLOWED_DOMAIN || "scioskola.cz").trim().toLowerCase();
+        return Boolean(email) && email.endsWith("@" + domain);
+      }
+
+      async function handleSignedInSession(session) {
+        const email = getUserEmail(session && session.user ? session.user : null);
+        if (!session || !email) {
+          return;
+        }
+        if (!isAllowedDomain(email)) {
+          await window.supabaseClient.auth.signOut();
+          alert("Prihlas se skolnim uctem na domene " + String(window.SCIO_ALLOWED_DOMAIN || "scioskola.cz") + ".");
+          return;
+        }
+        window.location.href = homeUrl;
+      }
+
+      function redirectIfSignedIn() {
+        if (!window.supabaseClient) {
+          return;
+        }
+
+        let redirected = false;
+        const subscriptionResult = window.supabaseClient.auth.onAuthStateChange(async function (_event, session) {
+          if (!session || redirected) {
+            return;
+          }
+          redirected = true;
+          await handleSignedInSession(session);
+        });
+
+        window.setTimeout(async function () {
+          if (redirected) {
+            return;
+          }
+          const { data } = await window.supabaseClient.auth.getSession();
+          const session = data && data.session ? data.session : null;
+          if (session) {
+            redirected = true;
+            await handleSignedInSession(session);
+          }
+          const subscription = subscriptionResult && subscriptionResult.data
+            ? subscriptionResult.data.subscription
+            : null;
+          if (subscription && typeof subscription.unsubscribe === "function") {
+            subscription.unsubscribe();
+          }
+        }, 900);
+      }
+
+      document.querySelector(".login-button").onclick = async function () {
+        if (!window.supabaseClient) {
+          alert("Supabase neni nastaveny. Dopln do supabase/config.js public anon/publishable key, ne sb_secret key.");
+          return;
+        }
+        const { error } = await window.supabaseClient.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: loginCallbackUrl,
+            queryParams: {
+              prompt: "select_account",
+              hd: String(window.SCIO_ALLOWED_DOMAIN || "scioskola.cz").trim().toLowerCase()
+            }
+          }
+        });
+        if (error) {
+          alert("Login failed: " + error.message);
+        }
+      };
+
+      redirectIfSignedIn();
+    </script>
+</body>
+</html>

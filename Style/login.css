@@ -1,0 +1,176 @@
+@font-face {
+    font-family: 'Scio';
+    src: url(../Fonts/gothamrnd_medium.otf);
+}
+
+:root {
+    color-scheme: light;
+    --scio-blue: #009ade;
+    --scio-black: #000000;
+    --gray-1: #4f4f4f;
+    --gray-2: #818182;
+    --gray-3: #bdbdbd;
+    --gray-4: #c4c4c4;
+    --gray-5: #ebebeb;
+    --purple-11: #672ce2;
+    --purple-12: #bfafee;
+    --blue-01: #f2fbff;
+    --blue-02: #d3f1ff;
+    --blue-11: #5fcfff;
+    --blue-12: #bcebff;
+    --blue-21: #0077ab;
+    --blue-22: #bfdff8;
+    --blue-31: #006692;
+    --blue-32: #005173;
+    --blue-33: #002d40;
+    --teal-11: #17a2b8;
+    --teal-12: #dcf5ff;
+    --green-11: #7ab339;
+    --green-12: #dbf5c7;
+    --green-21: #91df52;
+    --green-22: #ecf9e1;
+    --yellow-11: #ffdb57;
+    --yellow-12: #fff5d0;
+    --orange-11: #fd7e14;
+    --orange-12: #ffefe8;
+    --red-11: #dd4371;
+    --red-12: #f5cad7;
+    --bg-1: var(--blue-01);
+    --bg-2: var(--blue-22);
+    --bg-3: var(--blue-12);
+    --surface: rgba(255, 255, 255, 0.82);
+    --surface-strong: rgba(255, 255, 255, 0.96);
+    --text: var(--scio-black);
+    --text-muted: rgba(79, 79, 79, 0.7);
+    --accent: var(--scio-blue);
+    --accent-2: var(--blue-21);
+    --accent-3: var(--blue-22);
+    --border: rgba(79, 79, 79, 0.18);
+    --shadow-lg: 0 24px 60px rgba(21, 28, 45, 0.18), 0 8px 20px rgba(21, 28, 45, 0.1);
+    --shadow-sm: 0 12px 28px rgba(21, 28, 45, 0.12);
+    --radius-xl: 26px;
+    --radius-md: 14px;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: 'Scio', sans-serif;
+    color: var(--text);
+    background: radial-gradient(900px 600px at 12% -10%, rgba(0, 154, 222, 0.32), transparent 60%),
+        radial-gradient(800px 600px at 88% 8%, rgba(0, 119, 171, 0.2), transparent 60%),
+        linear-gradient(140deg, var(--bg-1), var(--bg-2) 48%, var(--bg-3));
+    overflow-x: hidden;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    width: 360px;
+    height: 360px;
+    top: -140px;
+    right: -120px;
+    background: radial-gradient(circle, rgba(0, 154, 222, 0.2), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+body::after {
+    content: '';
+    position: fixed;
+    width: 480px;
+    height: 480px;
+    bottom: -220px;
+    left: -180px;
+    background: radial-gradient(circle, rgba(0, 119, 171, 0.18), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+main {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    position: relative;
+    z-index: 1;
+}
+
+.login {
+    width: min(560px, 92vw);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    padding: 36px;
+    display: grid;
+    gap: 24px;
+    text-align: center;
+    backdrop-filter: blur(16px);
+    animation: float-in 0.6s ease both;
+}
+
+.login h1 {
+    margin: 0;
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
+}
+
+.login button {
+    padding: 12px 18px;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent), var(--blue-22));
+    color: var(--text);
+    font-family: 'Scio', sans-serif;
+    font-size: 1.1rem;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.login button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 30px rgba(11, 22, 37, 0.18);
+}
+
+.login button:active {
+    transform: translateY(0);
+}
+
+@keyframes float-in {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 640px) {
+    .login {
+        padding: 28px;
+        gap: 18px;
+    }
+
+    .login button {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+}
