@@ -15,12 +15,16 @@
   - `https://scioporn.netlify.app/login/index.html`
   - `https://scioporn.netlify.app/login/`
   - `https://scioporn.netlify.app/index.html`
+  - `http://localhost:3000/login/index.html`
+  - `http://localhost:3000/**`
   - `http://localhost:5500/login/index.html`
   - `http://localhost:5500/index.html`
+  - `http://127.0.0.1:3000/login/index.html`
+  - `http://127.0.0.1:3000/**`
   - `http://127.0.0.1:5500/login/index.html`
   - `http://127.0.0.1:5500/index.html`
 
-Do not leave Site URL set to `http://localhost:3000`; Supabase uses Site URL as the fallback redirect after OAuth.
+Do not leave Site URL set to `http://localhost:3000` for production. The app sends the current login URL as `redirectTo`, so local development still returns to localhost when the local callback URL is allowed above.
 
 Note: OAuth redirects do not work from `file://` URLs. Serve the site via HTTP (any simple static server is fine).
 

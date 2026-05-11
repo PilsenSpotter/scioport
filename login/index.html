@@ -21,10 +21,44 @@
     </main>
 
     <script>
-      const configuredAppUrl = String(window.SCIO_PUBLIC_APP_URL || "").trim().replace(/\/+$/, "");
-      const appBaseUrl = configuredAppUrl || window.location.origin;
-      const homeUrl = new URL("/index.html", appBaseUrl).toString();
-      const loginCallbackUrl = new URL("/login/index.html", appBaseUrl).toString();
+      const AUTH_RETURN_TO_STORAGE_KEY = "scioport-auth-return-to";
+      const homeUrl = new URL("../index.html", window.location.href).toString();
+      const loginCallbackUrl = new URL("index.html", window.location.href).toString();
+
+      function getSameOriginReturnUrl(value) {
+        if (!value) {
+          return "";
+        }
+        try {
+          const url = new URL(value, window.location.href);
+          const isLoginPage = /\/login\/(?:index\.html)?$/i.test(url.pathname);
+          if (url.origin !== window.location.origin || isLoginPage) {
+            return "";
+          }
+          return url.toString();
+        } catch (_error) {
+          return "";
+        }
+      }
+
+      function getPostLoginUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const returnTo = getSameOriginReturnUrl(urlParams.get("returnTo"));
+        if (returnTo) {
+          window.sessionStorage.setItem(AUTH_RETURN_TO_STORAGE_KEY, returnTo);
+          return returnTo;
+        }
+
+        const storedReturnTo = getSameOriginReturnUrl(window.sessionStorage.getItem(AUTH_RETURN_TO_STORAGE_KEY));
+        if (storedReturnTo) {
+          return storedReturnTo;
+        }
+
+        const referrerReturnTo = getSameOriginReturnUrl(document.referrer);
+        return referrerReturnTo || homeUrl;
+      }
+
+      const postLoginUrl = getPostLoginUrl();
 
       function getUserEmail(user) {
         return user && user.email ? String(user.email).trim().toLowerCase() : "";
@@ -45,7 +79,8 @@
           alert("Prihlas se skolnim uctem na domene " + String(window.SCIO_ALLOWED_DOMAIN || "scioskola.cz") + ".");
           return;
         }
-        window.location.href = homeUrl;
+        window.sessionStorage.removeItem(AUTH_RETURN_TO_STORAGE_KEY);
+        window.location.href = postLoginUrl;
       }
 
       function redirectIfSignedIn() {

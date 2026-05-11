@@ -2657,7 +2657,12 @@
       "jiri.prevorovsky@scioskola.cz"
     ];
 
-  const loginUrl = new URL("login/index.html", window.location.href).toString();
+  function getLoginUrl() {
+    const url = new URL("login/index.html", window.location.href);
+    url.searchParams.set("returnTo", window.location.href);
+    return url.toString();
+  }
+
   const homeUrl = new URL("index.html", window.location.href).toString();
   const THEME_STORAGE_KEY = "scioport-admin-theme";
   const DASHBOARD_NOTIF_SEEN_LIMIT = 800;
@@ -6736,7 +6741,7 @@
     } catch (error) {
       console.warn("Sign-out failed while denying access", error);
     }
-    window.location.replace(loginUrl);
+    window.location.replace(new URL("login/index.html", window.location.href).toString());
   }
 
   function wireStaticEvents() {
@@ -6907,7 +6912,7 @@
       if (!user || !user.uid) {
         closeStudentOverviewPostModal();
         currentUser = null;
-        window.location.replace(loginUrl);
+        window.location.replace(getLoginUrl());
         return;
       }
 

@@ -707,7 +707,11 @@
     <script src="https://apis.google.com/js/api.js"></script>
     <script>
         const db = firebase.firestore();
-        const loginUrl = new URL('login/index.html', window.location.href).toString();
+        function getLoginUrl() {
+            const url = new URL('login/index.html', window.location.href);
+            url.searchParams.set('returnTo', window.location.href);
+            return url.toString();
+        }
         const subjectsRef = db.collection('subjects');
         const templatesRef = db.collection('templates');
         async function signOut() {
@@ -2388,7 +2392,7 @@
               studentWorkGenderSelectionLocked = false;
               setAvatarSelectionState(false);
               setAvatarOverlayVisible(false);
-              window.location.replace(loginUrl);
+              window.location.replace(getLoginUrl());
               return;
             } else {
               currentUser = user;

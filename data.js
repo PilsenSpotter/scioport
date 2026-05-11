@@ -3,7 +3,11 @@
 // - Admin mode: for guides, shows recent portfolio entries across users.
 (function () {
   const supabase = window.supabaseClient;
-  const loginUrl = new URL("login/index.html", window.location.href).toString();
+  function getLoginUrl() {
+    const url = new URL("login/index.html", window.location.href);
+    url.searchParams.set("returnTo", window.location.href);
+    return url.toString();
+  }
 
   let adminMode = false;
   let currentUser = null;
@@ -50,7 +54,7 @@
     }
 
     if (!currentUser || !currentUser.id) {
-      window.location.replace(loginUrl);
+      window.location.replace(getLoginUrl());
       return;
     }
 
@@ -157,7 +161,7 @@
     const user = session && session.user ? session.user : null;
     currentUser = user ? { id: user.id, email: user.email || "" } : null;
     if (!currentUser || !currentUser.id) {
-      window.location.replace(loginUrl);
+      window.location.replace(getLoginUrl());
       return;
     }
     await renderData();
