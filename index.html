@@ -9,7 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ScioPort</title>
     <link rel="icon" href="Media/icons/sciokoly_logo.ico" type="image/x-icon">
-    <link rel="stylesheet" href="Style/style.css?v=2026-05-11-avatar-boy-motion">
+    <link rel="stylesheet" href="Style/style.css?v=2026-05-11-avatar-boy-real-eyes">
 </head>
 <body>
     <main>
@@ -141,17 +141,8 @@
                                 <div class="student-work-illustration portfolio-girl-illustration" data-svg-src="Media/avatar-girl.svg">
                                     <img class="portfolio-girl-fallback" src="Media/avatar-girl.svg" alt="">
                                 </div>
-                                <div class="student-work-boy-illustration">
+                                <div class="student-work-boy-illustration" data-svg-src="Media/avatar-boy.svg">
                                     <img class="student-work-boy-fallback" src="Media/avatar-boy.svg" alt="">
-                                    <span class="student-work-boy-face-motion" aria-hidden="true">
-                                        <span class="student-work-boy-eye student-work-boy-eye--left">
-                                            <span class="student-work-boy-pupil"></span>
-                                        </span>
-                                        <span class="student-work-boy-eye student-work-boy-eye--right">
-                                            <span class="student-work-boy-pupil"></span>
-                                        </span>
-                                        <span class="student-work-boy-smile"></span>
-                                    </span>
                                 </div>
                             </div>
                             <div class="student-work-stack student-work-stack--right">
@@ -3527,6 +3518,68 @@
             }
           }
 
+          function wrapStudentWorkBoyEyePath(path) {
+            if (!path || !path.parentNode || path.parentNode.classList.contains('student-work-boy-real-eye')) {
+              return;
+            }
+            const wrapper = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            wrapper.classList.add('student-work-boy-real-eye');
+            path.parentNode.insertBefore(wrapper, path);
+            wrapper.appendChild(path);
+          }
+
+          function markStudentWorkBoyEyes(svg) {
+            if (!svg) {
+              return;
+            }
+            const eyePathSignatures = new Set([
+              '#3C3836|translate(932,493)',
+              '#393633|translate(1136,491)',
+              '#332925|translate(906,501)',
+              '#4B4034|translate(1113,501)'
+            ]);
+            Array.from(svg.querySelectorAll('path')).forEach(path => {
+              const fill = String(path.getAttribute('fill') || '').trim().toUpperCase();
+              const transform = String(path.getAttribute('transform') || '').trim();
+              if (eyePathSignatures.has(`${fill}|${transform}`)) {
+                wrapStudentWorkBoyEyePath(path);
+              }
+            });
+          }
+
+          async function hydrateStudentWorkBoyAvatarSvg() {
+            if (!studentWorkBoyIllustration || !studentWorkBoyIllustration.dataset || !studentWorkBoyIllustration.dataset.svgSrc) {
+              return;
+            }
+            if (studentWorkBoyIllustration.querySelector('svg')) {
+              studentWorkBoyIllustration.classList.add('is-svg-ready');
+              return;
+            }
+            try {
+              const response = await fetch(studentWorkBoyIllustration.dataset.svgSrc, { cache: 'force-cache' });
+              if (!response.ok) {
+                throw new Error(`Boy SVG load failed: ${response.status}`);
+              }
+              const source = await response.text();
+              const parsed = new DOMParser().parseFromString(source, 'image/svg+xml');
+              const svg = parsed.documentElement;
+              if (!svg || svg.tagName.toLowerCase() !== 'svg' || parsed.querySelector('parsererror')) {
+                throw new Error('Invalid boy avatar SVG.');
+              }
+              svg.classList.add('portfolio-boy-svg');
+              svg.setAttribute('aria-hidden', 'true');
+              svg.setAttribute('focusable', 'false');
+              markStudentWorkBoyEyes(svg);
+              studentWorkBoyIllustration.innerHTML = '';
+              studentWorkBoyIllustration.appendChild(svg);
+              studentWorkBoyIllustration.classList.add('is-svg-ready');
+              setStudentWorkEyeOffset(0, 0);
+            } catch (error) {
+              console.error('Error loading interactive boy avatar SVG:', error);
+              studentWorkBoyIllustration.classList.add('is-svg-fallback');
+            }
+          }
+
           let studentWorkEyeRaf = 0;
           let studentWorkEyeTarget = null;
 
@@ -3594,6 +3647,7 @@
           }
 
           hydrateStudentWorkAvatarSvg();
+          hydrateStudentWorkBoyAvatarSvg();
 
           const defaultGender = studentWork ? studentWork.getAttribute('data-gender') : '';
           const defaultOutfit = studentWork ? studentWork.getAttribute('data-outfit') : '';
