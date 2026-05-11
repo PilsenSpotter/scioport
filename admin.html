@@ -2689,6 +2689,8 @@
   let classesTemplateGroups = [];
   let classesTemplateGroupsLoadFailed = false;
   let newTemplatePrefillClassNames = [];
+  let adminSupabaseSetupWarning = "";
+  let adminSupabaseSetupWarningShown = false;
 
   function hasGuideAccess(email) {
     return GUIDE_EMAILS.indexOf(String(email || "").trim().toLowerCase()) >= 0;
@@ -2722,6 +2724,31 @@
     showContentMessage(
       "Supabase admin není nastavený",
       "Jsi přihlášený jako " + String(email || "neznámý účet") + ", ale Supabase RLS tě nepustilo jako průvodce. Spusť v Supabase SQL editoru soubor supabase/schema.sql a ověř, že public.guide_emails obsahuje tento e-mail." + suffix
+    );
+  }
+
+  function setAdminSupabaseSetupWarning(email, error) {
+    const detail = getSupabaseErrorText(error);
+    adminSupabaseSetupWarning =
+      "Admin se načetl podle lokálního seznamu průvodců, ale Supabase RLS zatím nepotvrdilo účet "
+      + String(email || "neznámý účet")
+      + ". Spusť v Supabase SQL editoru soubor supabase/schema.sql a ověř tabulku public.guide_emails."
+      + (detail ? " Detail: " + detail : "");
+    if (!adminSupabaseSetupWarningShown) {
+      adminSupabaseSetupWarningShown = true;
+      toast("Supabase RLS není ověřené", "Admin se načetl, ale některé zápisy/čtení můžou selhat, dokud nespustíš schema.sql.");
+    }
+  }
+
+  function renderAdminSupabaseSetupWarning() {
+    if (!adminSupabaseSetupWarning) {
+      return "";
+    }
+    return (
+      '<div class="card">' +
+      '<h3>Supabase práva</h3>' +
+      '<div class="cardBody empty">' + esc(adminSupabaseSetupWarning) + '</div>' +
+      '</div>'
     );
   }
 
@@ -5588,6 +5615,7 @@
   function renderDashboardContent(stats) {
     const weekLabel = formatDateTime(stats.weekStartMillis);
     return (
+      renderAdminSupabaseSetupWarning() +
       '<section class="dashWrap">' +
       '<div class="dashHead">' +
       '<div><strong class="dashHeadTitle">Rychlé metriky</strong><span class="dashHeadMeta">aktuální data</span></div>' +
@@ -6982,8 +7010,16 @@
           return;
         }
         if (!serverGuideAccess.allowed) {
-          showAdminSupabaseSetupBlocked(user.email, serverGuideAccess.error);
-          return;
+          if (clientGuideAllowed) {
+            console.warn("Supabase guide RPC did not confirm admin access; continuing with local guide allowlist.", serverGuideAccess.error);
+            setAdminSupabaseSetupWarning(user.email, serverGuideAccess.error);
+          } else {
+            showAdminSupabaseSetupBlocked(user.email, serverGuideAccess.error);
+            return;
+          }
+        } else {
+          adminSupabaseSetupWarning = "";
+          adminSupabaseSetupWarningShown = false;
         }
 
         currentUser = user;
