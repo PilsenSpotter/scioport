@@ -5734,8 +5734,110 @@ main {
 }
 
 .student-work-boy-illustration {
-    object-fit: contain;
+    position: relative;
+    overflow: visible;
+    aspect-ratio: 2048 / 1314;
+    transform-origin: 50% 78%;
+    transform:
+        translate(var(--avatar-body-x, 0px), var(--avatar-body-y, 0px))
+        rotate(var(--avatar-body-tilt, 0deg));
+    animation: portfolioBoyBodyFloat 5.2s ease-in-out infinite;
     display: none !important;
+}
+
+.student-work-boy-fallback {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+    transform-origin: 52% 40%;
+    transform:
+        translate(var(--avatar-head-x, 0px), var(--avatar-head-y, 0px))
+        rotate(var(--avatar-head-tilt, 0deg));
+    transition: transform 0.12s ease-out;
+    will-change: transform;
+}
+
+.student-work-boy-face-motion {
+    --boy-eye-bg: #fff8ef;
+    --boy-eye-line: rgba(64, 35, 24, 0.34);
+    --boy-eye-dark: #1c1720;
+    position: absolute;
+    left: 52.5%;
+    top: 35%;
+    width: 13.5%;
+    aspect-ratio: 2.8 / 1;
+    transform:
+        translate(-50%, -50%)
+        translate(var(--avatar-face-x, 0px), var(--avatar-face-y, 0px))
+        rotate(var(--avatar-face-tilt, 0deg));
+    transform-origin: 50% 50%;
+    transition: transform 0.12s ease-out;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.student-work-boy-eye {
+    position: absolute;
+    top: 18%;
+    width: 26%;
+    aspect-ratio: 1.32 / 1;
+    border: 2px solid var(--boy-eye-line);
+    border-radius: 999px;
+    background: var(--boy-eye-bg);
+    box-shadow:
+        inset 0 -2px 5px rgba(92, 48, 32, 0.18),
+        0 2px 5px rgba(27, 24, 29, 0.12);
+    overflow: hidden;
+}
+
+.student-work-boy-eye::after {
+    content: "";
+    position: absolute;
+    inset: -6% -8%;
+    border-radius: inherit;
+    background: #d9a58d;
+    transform: scaleY(0);
+    transform-origin: top;
+    animation: portfolioBoyBlink 5.4s ease-in-out infinite;
+    z-index: 3;
+}
+
+.student-work-boy-eye--left {
+    left: 15%;
+}
+
+.student-work-boy-eye--right {
+    right: 15%;
+}
+
+.student-work-boy-pupil {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 38%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #ffffff 0 12%, var(--boy-eye-dark) 14% 100%);
+    transform:
+        translate(-50%, -50%)
+        translate(var(--avatar-eye-x, 0px), var(--avatar-eye-y, 0px));
+    transition: transform 0.08s ease-out;
+    z-index: 2;
+}
+
+.student-work-boy-smile {
+    position: absolute;
+    left: 50%;
+    bottom: -28%;
+    width: 23%;
+    height: 18%;
+    border-bottom: 3px solid rgba(46, 29, 24, 0.62);
+    border-radius: 0 0 999px 999px;
+    transform:
+        translateX(-50%)
+        translate(var(--avatar-inner-face-x, 0px), var(--avatar-inner-face-y, 0px));
+    transition: transform 0.12s ease-out;
 }
 
 .student-work[data-gender="kluk"] .portfolio-girl-illustration {
@@ -5872,6 +5974,30 @@ main {
     }
     100% {
         translate: 0 0;
+    }
+}
+
+@keyframes portfolioBoyBodyFloat {
+    0% {
+        translate: 0 0;
+    }
+    50% {
+        translate: 0 -5px;
+    }
+    100% {
+        translate: 0 0;
+    }
+}
+
+@keyframes portfolioBoyBlink {
+    0%,
+    88%,
+    100% {
+        transform: scaleY(0);
+    }
+    91%,
+    94% {
+        transform: scaleY(1);
     }
 }
 

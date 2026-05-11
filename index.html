@@ -9,7 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ScioPort</title>
     <link rel="icon" href="Media/icons/sciokoly_logo.ico" type="image/x-icon">
-    <link rel="stylesheet" href="Style/style.css?v=2026-05-11-avatar-boy">
+    <link rel="stylesheet" href="Style/style.css?v=2026-05-11-avatar-boy-motion">
 </head>
 <body>
     <main>
@@ -141,7 +141,18 @@
                                 <div class="student-work-illustration portfolio-girl-illustration" data-svg-src="Media/avatar-girl.svg">
                                     <img class="portfolio-girl-fallback" src="Media/avatar-girl.svg" alt="">
                                 </div>
-                                <img class="student-work-boy-illustration" src="Media/avatar-boy.svg" alt="">
+                                <div class="student-work-boy-illustration">
+                                    <img class="student-work-boy-fallback" src="Media/avatar-boy.svg" alt="">
+                                    <span class="student-work-boy-face-motion" aria-hidden="true">
+                                        <span class="student-work-boy-eye student-work-boy-eye--left">
+                                            <span class="student-work-boy-pupil"></span>
+                                        </span>
+                                        <span class="student-work-boy-eye student-work-boy-eye--right">
+                                            <span class="student-work-boy-pupil"></span>
+                                        </span>
+                                        <span class="student-work-boy-smile"></span>
+                                    </span>
+                                </div>
                             </div>
                             <div class="student-work-stack student-work-stack--right">
                                 <button class="student-work-button student-work-button--notes is-blue-2" type="button" data-title="Prace 5" aria-label="Prace 5">
@@ -2411,6 +2422,7 @@
           const studentWorkButtonsPanel = document.querySelector('#student-work .student-work-panel--buttons');
           const studentWorkFormPanel = document.querySelector('#student-work .student-work-panel--form');
           const studentWorkIllustration = document.querySelector('.student-work-illustration');
+          const studentWorkBoyIllustration = document.querySelector('.student-work-boy-illustration');
           const studentWorkLog = document.getElementById('student-work-log');
           const studentWorkAddButton = document.querySelector('.student-work-button[data-action="add-entry"]');
           const studentWorkReflectButton = document.querySelector('.student-work-button[data-action="reflect-daily"]');
@@ -3563,10 +3575,13 @@
           }
 
           function handleStudentWorkEyeMove(event) {
-            if (!studentWorkIllustration) {
+            const activeIllustration = studentWorkGender === 'kluk'
+              ? studentWorkBoyIllustration
+              : studentWorkIllustration;
+            if (!activeIllustration) {
               return;
             }
-            const rect = studentWorkIllustration.getBoundingClientRect();
+            const rect = activeIllustration.getBoundingClientRect();
             if (!rect.width || !rect.height) {
               return;
             }
@@ -5446,7 +5461,7 @@
             });
           }
 
-          if (studentWorkIllustration) {
+          if (studentWorkIllustration || studentWorkBoyIllustration) {
             document.addEventListener('mousemove', handleStudentWorkEyeMove);
             document.addEventListener('mouseleave', function() {
               setStudentWorkEyeOffset(0, 0);
