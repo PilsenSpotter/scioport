@@ -5734,7 +5734,16 @@ main {
 }
 
 .student-work-boy-illustration {
+    object-fit: contain;
     display: none !important;
+}
+
+.student-work[data-gender="kluk"] .portfolio-girl-illustration {
+    display: none !important;
+}
+
+.student-work[data-gender="kluk"] .student-work-boy-illustration {
+    display: block !important;
 }
 
 .student-work-stage.is-active .student-work-center {
