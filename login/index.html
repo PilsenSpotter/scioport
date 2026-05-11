@@ -21,8 +21,10 @@
     </main>
 
     <script>
-      const homeUrl = new URL("../index.html", window.location.href).toString();
-      const loginCallbackUrl = new URL("index.html", window.location.href).toString();
+      const configuredAppUrl = String(window.SCIO_PUBLIC_APP_URL || "").trim().replace(/\/+$/, "");
+      const appBaseUrl = configuredAppUrl || window.location.origin;
+      const homeUrl = new URL("/index.html", appBaseUrl).toString();
+      const loginCallbackUrl = new URL("/login/index.html", appBaseUrl).toString();
 
       function getUserEmail(user) {
         return user && user.email ? String(user.email).trim().toLowerCase() : "";

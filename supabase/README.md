@@ -11,6 +11,7 @@
 - In Authentication -> URL Configuration, set Site URL to:
   - `https://scioporn.netlify.app`
 - Set allowed redirect URLs to include your deployed app URL(s), e.g.:
+  - `https://scioporn.netlify.app/**`
   - `https://scioporn.netlify.app/login/index.html`
   - `https://scioporn.netlify.app/login/`
   - `https://scioporn.netlify.app/index.html`

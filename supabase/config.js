@@ -11,6 +11,7 @@ window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXB
 
 // App conventions / access control.
 window.SCIO_ALLOWED_DOMAIN = "scioskola.cz";
+window.SCIO_PUBLIC_APP_URL = "https://scioporn.netlify.app";
 window.SCIO_GUIDE_EMAILS = [
   "oliver.bocko@scioskola.cz",
   "tobias.pokorny@scioskola.cz",
