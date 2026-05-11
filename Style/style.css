@@ -5780,6 +5780,7 @@ main {
 
 .student-work[data-gender="kluk"] .student-work-boy-illustration {
     display: block !important;
+    max-width: 520px;
 }
 
 .student-work-stage.is-active .student-work-center {
