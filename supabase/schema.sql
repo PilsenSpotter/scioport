@@ -3,21 +3,38 @@
 
 create extension if not exists pgcrypto;
 
--- Basic "guide" (admin) check based on email allowlist.
--- You can replace this later with a proper roles table / app_metadata roles.
+-- Guide/admin allowlist. Keep this table in sync with supabase/config.js.
+create table if not exists public.guide_emails (
+  email text primary key,
+  created_at timestamptz not null default now()
+);
+
+insert into public.guide_emails(email)
+values
+  ('oliver.bocko@scioskola.cz'),
+  ('tobias.pokorny@scioskola.cz'),
+  ('jiri.prevorovsky@scioskola.cz')
+on conflict (email) do nothing;
+
+create unique index if not exists guide_emails_email_lower_unique on public.guide_emails(lower(email));
+
+-- Basic "guide" (admin) check based on the database allowlist.
 create or replace function public.is_guide()
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
-  select lower(coalesce(auth.jwt() ->> 'email', '')) = any (
-    array[
-      'oliver.bocko@scioskola.cz',
-      'tobias.pokorny@scioskola.cz',
-      'jiri.prevorovsky@scioskola.cz'
-    ]
+  select exists (
+    select 1
+    from public.guide_emails guide
+    where lower(guide.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
   );
 $$;
+
+revoke all on function public.is_guide() from public;
+grant execute on function public.is_guide() to authenticated;
 
 -- User profile data.
 create table if not exists public.profiles (
@@ -270,6 +287,7 @@ create table if not exists public.daily_reflections (
 alter table if exists public.daily_reflections add column if not exists mood text;
 
 -- Row Level Security (client-side safe access)
+alter table public.guide_emails enable row level security;
 alter table public.profiles enable row level security;
 alter table public.classes enable row level security;
 alter table public.subjects enable row level security;
@@ -278,6 +296,28 @@ alter table public.template_responses enable row level security;
 alter table public.portfolio_entries enable row level security;
 alter table public.portfolio_comments enable row level security;
 alter table public.daily_reflections enable row level security;
+
+-- guide_emails
+drop policy if exists guide_emails_select_guide on public.guide_emails;
+create policy guide_emails_select_guide
+on public.guide_emails
+for select
+to authenticated
+using (public.is_guide());
+
+drop policy if exists guide_emails_insert_guide on public.guide_emails;
+create policy guide_emails_insert_guide
+on public.guide_emails
+for insert
+to authenticated
+with check (public.is_guide());
+
+drop policy if exists guide_emails_delete_guide on public.guide_emails;
+create policy guide_emails_delete_guide
+on public.guide_emails
+for delete
+to authenticated
+using (public.is_guide());
 
 -- profiles
 drop policy if exists profiles_select_self_or_guide on public.profiles;

@@ -10,6 +10,7 @@ window.SUPABASE_URL = "https://plevqvyrldvcelkzcgbe.supabase.co";
 window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsZXZxdnlybGR2Y2Vsa3pjZ2JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NDE0NjksImV4cCI6MjA5MzExNzQ2OX0.yKsaWHJx85mJ0PZzAUxwEMPCw0t0PyUrHVpSagTW0VY";
 
 // App conventions / access control.
+// Keep guide emails in sync with public.guide_emails in Supabase.
 window.SCIO_ALLOWED_DOMAIN = "scioskola.cz";
 window.SCIO_GUIDE_EMAILS = [
   "oliver.bocko@scioskola.cz",

@@ -685,7 +685,11 @@
         const GOOGLE_API_KEY = 'AIzaSyAuqQ4Zxy_JdUDS8lycIl_4SIbowcsw0Cg';
         const GOOGLE_APP_ID = 'zaznamy-zrhomazdeni';
         const DRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file';
-        const ADMIN_EMAILS = ['oliver.bocko@scioskola.cz', 'tobias.pokorny@scioskola.cz', 'jiri.prevorovsky@scioskola.cz'];
+        const ADMIN_EMAILS = (
+            Array.isArray(window.SCIO_GUIDE_EMAILS) && window.SCIO_GUIDE_EMAILS.length
+                ? window.SCIO_GUIDE_EMAILS
+                : ['oliver.bocko@scioskola.cz', 'tobias.pokorny@scioskola.cz', 'jiri.prevorovsky@scioskola.cz']
+        ).map(email => String(email || '').trim().toLowerCase()).filter(Boolean);
         const EMOJI_DEFS = [];
         let EMOJI_CODE_MAP = new Map();
         let EMOJI_CODE_PATTERN = null;

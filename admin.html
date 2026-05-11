@@ -2691,7 +2691,65 @@
   let newTemplatePrefillClassNames = [];
 
   function hasGuideAccess(email) {
-    return GUIDE_EMAILS.indexOf(String(email || "").toLowerCase()) >= 0;
+    return GUIDE_EMAILS.indexOf(String(email || "").trim().toLowerCase()) >= 0;
+  }
+
+  function getSupabaseErrorText(error) {
+    if (!error) {
+      return "";
+    }
+    return String(error.message || error.details || error.hint || error.code || error || "").trim();
+  }
+
+  async function verifyGuideAccessOnServer() {
+    if (!supabase || typeof supabase.rpc !== "function") {
+      return { allowed: false, error: new Error("Supabase RPC není dostupné.") };
+    }
+    try {
+      const { data, error } = await supabase.rpc("is_guide");
+      if (error) {
+        return { allowed: false, error: error };
+      }
+      return { allowed: data === true || data === "true", error: null };
+    } catch (error) {
+      return { allowed: false, error: error };
+    }
+  }
+
+  function showAdminSupabaseSetupBlocked(email, error) {
+    const detail = getSupabaseErrorText(error);
+    const suffix = detail ? " Detail: " + detail : "";
+    showContentMessage(
+      "Supabase admin není nastavený",
+      "Jsi přihlášený jako " + String(email || "neznámý účet") + ", ale Supabase RLS tě nepustilo jako průvodce. Spusť v Supabase SQL editoru soubor supabase/schema.sql a ověř, že public.guide_emails obsahuje tento e-mail." + suffix
+    );
+  }
+
+  async function ensureGuideProfile(user) {
+    if (!supabase || !user || !user.uid || !user.email) {
+      return;
+    }
+    const email = normalizeEmail(user.email);
+    if (!email) {
+      return;
+    }
+    const fallbackName = email.split("@")[0] || email;
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({
+          id: user.uid,
+          email: email,
+          email_lower: email,
+          display_name: fallbackName,
+          name: fallbackName
+        }, { onConflict: "id" });
+      if (error) {
+        console.warn("Guide profile upsert failed:", error);
+      }
+    } catch (error) {
+      console.warn("Guide profile upsert failed:", error);
+    }
   }
 
   function getInitialTheme() {
@@ -6741,7 +6799,7 @@
     } catch (error) {
       console.warn("Sign-out failed while denying access", error);
     }
-    window.location.replace(new URL("login/index.html", window.location.href).toString());
+    window.location.replace(getLoginUrl());
   }
 
   function wireStaticEvents() {
@@ -6905,50 +6963,65 @@
     }
 
     async function handleAuthSession(session) {
-      const user = session && session.user
-        ? { uid: session.user.id, email: session.user.email || "" }
-        : null;
-
-      if (!user || !user.uid) {
-        closeStudentOverviewPostModal();
-        currentUser = null;
-        window.location.replace(getLoginUrl());
-        return;
-      }
-
-      if (!hasGuideAccess(user.email)) {
-        await denyGuideAccess();
-        return;
-      }
-
-      currentUser = user;
-
-      await Promise.all([loadRecipientDirectory(), loadSubjectDirectory()]);
-      const initialClassGroups = buildClassGroups(recipientDirectory.students, recipientDirectory.classes);
-
-      let initialTemplateGroups = [];
       try {
-        initialTemplateGroups = await loadMyTemplateGroups();
-      } catch (error) {
-        console.warn("Unable to preload my templates count", error);
-      }
+        const user = session && session.user
+          ? { uid: session.user.id, email: session.user.email || "" }
+          : null;
 
-      let initialResponses = [];
-      try {
-        const initialTemplateIds = collectTemplateIdsFromGroups(initialTemplateGroups);
-        initialResponses = await loadDashboardResponses(initialTemplateIds);
-      } catch (error) {
-        console.warn("Unable to preload notifications count", error);
-      }
+        if (!user || !user.uid) {
+          closeStudentOverviewPostModal();
+          currentUser = null;
+          window.location.replace(getLoginUrl());
+          return;
+        }
 
-      const initialSeenSet = loadDashboardNotificationSeenSet();
-      const initialStats = computeDashboardStats(initialTemplateGroups, initialClassGroups, initialResponses, initialSeenSet);
-      updateDashboardPills(initialStats);
-      setView("dashboard");
+        const clientGuideAllowed = hasGuideAccess(user.email);
+        const serverGuideAccess = await verifyGuideAccessOnServer();
+        if (!clientGuideAllowed && !serverGuideAccess.allowed) {
+          await denyGuideAccess();
+          return;
+        }
+        if (!serverGuideAccess.allowed) {
+          showAdminSupabaseSetupBlocked(user.email, serverGuideAccess.error);
+          return;
+        }
+
+        currentUser = user;
+        await ensureGuideProfile(user);
+
+        await Promise.all([loadRecipientDirectory(), loadSubjectDirectory()]);
+        const initialClassGroups = buildClassGroups(recipientDirectory.students, recipientDirectory.classes);
+
+        let initialTemplateGroups = [];
+        try {
+          initialTemplateGroups = await loadMyTemplateGroups();
+        } catch (error) {
+          console.warn("Unable to preload my templates count", error);
+        }
+
+        let initialResponses = [];
+        try {
+          const initialTemplateIds = collectTemplateIdsFromGroups(initialTemplateGroups);
+          initialResponses = await loadDashboardResponses(initialTemplateIds);
+        } catch (error) {
+          console.warn("Unable to preload notifications count", error);
+        }
+
+        const initialSeenSet = loadDashboardNotificationSeenSet();
+        const initialStats = computeDashboardStats(initialTemplateGroups, initialClassGroups, initialResponses, initialSeenSet);
+        updateDashboardPills(initialStats);
+        setView("dashboard");
+      } catch (error) {
+        console.error("Unable to initialize admin session:", error);
+        showContentMessage("Admin prostředí", "Nepodařilo se načíst admin data. Zkontroluj, že je v Supabase spuštěný soubor supabase/schema.sql a že tvůj e-mail je v guide_emails.");
+      }
     }
 
     supabase.auth.onAuthStateChange(function (_event, session) {
-      handleAuthSession(session);
+      handleAuthSession(session).catch(function (error) {
+        console.error("Unable to handle auth state change:", error);
+        showContentMessage("Admin přístup", "Nepodařilo se ověřit přihlášení.");
+      });
     });
 
     try {

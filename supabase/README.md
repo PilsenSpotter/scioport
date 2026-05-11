@@ -15,12 +15,19 @@
   - `https://scioporn.netlify.app/login/index.html`
   - `https://scioporn.netlify.app/login/`
   - `https://scioporn.netlify.app/index.html`
+  - `https://scioporn.netlify.app/admin.html`
   - `http://localhost:3000/login/index.html`
   - `http://localhost:3000/**`
+  - `http://localhost:5010/login/index.html`
+  - `http://localhost:5010/admin.html`
+  - `http://localhost:5010/**`
   - `http://localhost:5500/login/index.html`
   - `http://localhost:5500/index.html`
   - `http://127.0.0.1:3000/login/index.html`
   - `http://127.0.0.1:3000/**`
+  - `http://127.0.0.1:5010/login/index.html`
+  - `http://127.0.0.1:5010/admin.html`
+  - `http://127.0.0.1:5010/**`
   - `http://127.0.0.1:5500/login/index.html`
   - `http://127.0.0.1:5500/index.html`
 
@@ -37,7 +44,22 @@ Note: OAuth redirects do not work from `file://` URLs. Serve the site via HTTP (
 Use the public anon/publishable browser key. Do not use keys that start with `sb_secret_` in frontend code.
 The anon/publishable key is safe to use in the browser only when RLS policies are enabled (this schema enables RLS).
 
-## 4) Main app compatibility layer
+## 4) Admin access
+
+Admin access must be allowed in two places:
+
+- Frontend allowlist in [`supabase/config.js`](config.js): `window.SCIO_GUIDE_EMAILS`
+- Supabase RLS allowlist in table `public.guide_emails`
+
+Running [`supabase/schema.sql`](schema.sql) creates `public.guide_emails`, fills the default guide e-mails, and updates `public.is_guide()` so admin pages can read/write protected data. To add another guide later, run:
+
+```sql
+insert into public.guide_emails(email)
+values ('name@scioskola.cz')
+on conflict (email) do nothing;
+```
+
+## 5) Main app compatibility layer
 
 `index.html` no longer loads Firebase SDKs. It loads:
 
