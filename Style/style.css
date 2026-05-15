@@ -5998,6 +5998,62 @@ main {
     white-space: nowrap;
 }
 
+.student-work-mentor-entry {
+    width: min(520px, 90vw);
+    display: flex;
+    justify-content: center;
+    margin: 18px auto 0;
+}
+
+.student-work-stage.is-active ~ .student-work-mentor-entry {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.student-work-mentor-link {
+    min-height: 64px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 24px 10px 14px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #17213f, #3569ff);
+    color: #fff;
+    box-shadow: 0 9px 0 #10172e, 0 18px 28px rgba(16, 24, 38, 0.18);
+    font-family: 'Scio', sans-serif;
+    font-size: 1rem;
+    font-weight: 800;
+    text-decoration: none;
+    transition:
+        transform 0.15s ease-out,
+        box-shadow 0.15s ease-out;
+}
+
+.student-work-mentor-link:hover {
+    transform: translateY(2px);
+    box-shadow: 0 7px 0 #10172e, 0 16px 24px rgba(16, 24, 38, 0.18);
+    text-decoration: none;
+}
+
+.student-work-mentor-link:active {
+    transform: translateY(9px);
+    box-shadow: none;
+}
+
+.student-work-mentor-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.16);
+    font-size: 28px;
+    line-height: 1;
+    font-weight: 900;
+}
+
 @keyframes shine {
     0% {
         top: -120%;

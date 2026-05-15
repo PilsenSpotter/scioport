@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scioport · Mentorské prostředí</title>
+<style>
+:root{
+  --ink:#18213f;
+  --muted:#66738c;
+  --line:#dfe6f2;
+  --glass:rgba(255,255,255,.72);
+  --blue1:#4facfe;
+  --blue2:#00c6fb;
+  --pink1:#fa709a;
+  --gold:#fee140;
+  --green1:#43e97b;
+  --green2:#38f9d7;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;
+  color:var(--ink);
+  background:
+    radial-gradient(circle at 85% 5%, rgba(255,190,230,.35), transparent 28%),
+    radial-gradient(circle at 10% 90%, rgba(95,210,255,.22), transparent 32%),
+    linear-gradient(135deg,#f5f9ff,#fff8fd);
+  padding-bottom:105px;
+}
+button,
+input,
+textarea{font:inherit}
+.app{max-width:1180px;margin:0 auto;padding:28px}
+.topbar{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:24px}
+.brand{display:flex;gap:14px;align-items:center}
+.logo{
+  width:54px;
+  height:54px;
+  border-radius:18px;
+  display:grid;
+  place-items:center;
+  background:#fff;
+  box-shadow:0 12px 30px rgba(35,60,120,.12);
+  font-size:34px;
+  font-weight:900;
+}
+h1,h2,h3,p{margin:0}
+h1{font-size:28px}
+.subtitle,.lead,.small{color:var(--muted)}
+.mentor-note{max-width:510px;color:var(--muted);font-size:14px;line-height:1.5}
+.top-actions{display:flex;align-items:center;gap:12px}
+.screen{display:none}
+.screen.active{display:block}
+.panel{
+  background:var(--glass);
+  border:1px solid rgba(210,220,238,.9);
+  border-radius:32px;
+  box-shadow:0 20px 70px rgba(45,65,120,.12);
+  backdrop-filter:blur(16px);
+}
+.home-compact{min-height:62vh;display:grid;place-items:center}
+.home-menu{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:18px;width:100%;max-width:850px}
+.big-tab{
+  position:relative;
+  overflow:hidden;
+  min-height:150px;
+  border:1px solid var(--line);
+  border-radius:32px;
+  background:linear-gradient(180deg,#ffffff,#f8fbff);
+  color:var(--ink);
+  font-size:24px;
+  font-weight:900;
+  box-shadow:0 16px 45px rgba(40,55,90,.12);
+  cursor:pointer;
+  transition:.2s ease;
+}
+.big-tab:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.45),transparent);
+  pointer-events:none;
+}
+.big-tab span{display:block;font-size:15px;font-weight:650;color:var(--muted);margin-top:8px}
+.big-tab:hover{transform:translateY(-4px);box-shadow:0 24px 60px rgba(40,55,90,.18)}
+.toolbar{display:flex;justify-content:space-between;margin-bottom:18px}
+.back,
+.save,
+.ghost{
+  border:0;
+  border-radius:999px;
+  padding:12px 18px;
+  font-weight:800;
+  cursor:pointer;
+  box-shadow:0 10px 26px rgba(40,60,110,.09);
+  text-decoration:none;
+}
+.back,.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.save{background:linear-gradient(135deg,var(--blue1),var(--blue2));color:#fff}
+.two-col{display:grid;grid-template-columns:1fr 320px;gap:18px}
+main.panel,aside.panel{padding:24px}
+.lead{font-size:17px;line-height:1.55;margin:8px 0 22px}
+.emotion-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.emotion{
+  border:1px solid var(--line);
+  background:#fff;
+  border-radius:20px;
+  padding:14px;
+  text-align:center;
+  cursor:pointer;
+  font-weight:800;
+  transition:.18s ease;
+}
+.emotion:hover{transform:translateY(-2px) scale(1.03)}
+.emotion.on{background:linear-gradient(135deg,#e7f5ff,#fff);outline:3px solid rgba(79,172,254,.25)}
+.field{margin:14px 0}
+label{display:block;font-weight:900;margin-bottom:8px}
+textarea,
+input{
+  width:100%;
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:14px;
+  background:rgba(255,255,255,.92);
+  min-height:92px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+}
+.prompt-card,.summary-card{
+  background:linear-gradient(180deg,#ffffff,#f8fbff);
+  border:1px solid var(--line);
+  border-radius:26px;
+  padding:16px;
+  line-height:1.5;
+  box-shadow:0 12px 32px rgba(40,60,110,.08);
+}
+.pillar-section{
+  margin:18px 0;
+  padding:18px;
+  border-radius:28px;
+  background:rgba(255,255,255,.55);
+  border:1px solid var(--line);
+}
+.pillar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.score-badge{
+  font-weight:900;
+  padding:8px 12px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#ffffff,#eef6ff);
+  border:1px solid var(--line);
+}
+.sub{background:#fff;border:1px solid var(--line);border-radius:22px;padding:14px;margin:12px 0}
+.sub-title{font-weight:900;margin-bottom:10px}
+.levels{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.level{border:1px solid var(--line);border-radius:18px;padding:11px;cursor:pointer;background:#fafcff;font-size:13px}
+.level.on{background:#eafff3;border-color:#52d485;box-shadow:inset 0 0 0 2px rgba(82,212,133,.25)}
+.evidence-box{display:none;margin-top:12px;padding:12px;border-radius:18px;background:#f7faff;border:1px dashed #b9c9e8}
+.evidence-box.show{display:block}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{border-radius:999px;padding:8px 11px;background:#fff;border:1px solid var(--line);cursor:pointer;font-size:13px}
+.chip.on{background:#dbfff0;border-color:#43d58d;font-weight:900}
+.warning{margin-top:9px;color:#a86b00;font-weight:800;font-size:13px}
+.plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.bottom-pillars{
+  position:fixed;
+  bottom:22px;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:18px;
+  z-index:99;
+}
+.pillar-card{position:relative}
+.pillar-icon{
+  width:62px;
+  height:62px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  color:white;
+  font-size:30px;
+  font-weight:950;
+  box-shadow:0 14px 38px rgba(20,35,80,.25);
+  cursor:pointer;
+  transition:.2s ease;
+  border:2px solid rgba(255,255,255,.7);
+}
+.pillar-icon:hover{transform:translateY(-5px) scale(1.08)}
+.zvidavost{background:linear-gradient(135deg,var(--blue1),var(--blue2))}
+.hodnoty{background:linear-gradient(135deg,var(--pink1),var(--gold))}
+.samostatnost{background:linear-gradient(135deg,var(--green1),var(--green2))}
+.pillar-hover{
+  position:absolute;
+  bottom:78px;
+  left:50%;
+  transform:translateX(-50%) translateY(4px);
+  width:240px;
+  padding:14px;
+  border-radius:20px;
+  background:rgba(20,25,45,.94);
+  color:white;
+  text-align:center;
+  font-size:14px;
+  line-height:1.45;
+  opacity:0;
+  pointer-events:none;
+  transition:.18s ease;
+  box-shadow:0 18px 42px rgba(20,25,45,.25);
+}
+.pillar-card:hover .pillar-hover{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.screen:not(#home) .toolbar{max-width:1080px;margin:0 auto 18px}
+.screen:not(#home) .panel{
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(220,228,244,.95);
+  box-shadow:0 22px 70px rgba(42,65,120,.14);
+}
+.screen:not(#home) main.panel h2{font-size:34px;letter-spacing:-.03em}
+.screen:not(#home) .lead{font-size:18px;max-width:760px}
+#feel .two-col,
+#learn .learn-layout{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) 360px;
+  gap:22px;
+  align-items:start;
+}
+#feel main.panel,
+#learn .learn-main{
+  padding:28px;
+  border-radius:34px;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(116,182,255,.16), transparent 30%),
+    linear-gradient(180deg,rgba(255,255,255,.86),rgba(248,251,255,.82));
+  border:1px solid rgba(210,220,238,.95);
+}
+#feel aside.panel,
+#learn .learn-side{
+  padding:24px;
+  border-radius:34px;
+  position:sticky;
+  top:22px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255,210,245,.22), transparent 32%),
+    linear-gradient(180deg,rgba(255,255,255,.84),rgba(250,247,255,.78));
+  border:1px solid rgba(210,220,238,.95);
+}
+#learn main.panel{background:transparent;box-shadow:none;border:0;padding:0}
+#learnMount{margin-top:20px}
+#learn .pillar-section{
+  margin:0 0 18px;
+  padding:0;
+  overflow:hidden;
+  border-radius:30px;
+  background:linear-gradient(180deg,#ffffff,#f8fbff);
+  border:1px solid rgba(210,220,238,.95);
+  box-shadow:0 14px 36px rgba(40,60,110,.08);
+}
+#learn .pillar-head{
+  padding:18px 20px;
+  margin:0;
+  border-bottom:1px solid var(--line);
+  background:rgba(255,255,255,.72);
+}
+#learn .pillar-head.clickable,
+#learn .sub-title-row{cursor:pointer}
+#learn .pillar-head.clickable:hover,
+#learn .sub-title-row:hover{background:rgba(245,249,255,.95)}
+#learn .pillar-head h3{font-size:24px}
+#learn .score-badge{font-size:18px;min-width:74px;text-align:center;background:#fff}
+#learn .pillar-body,
+#learn .sub-detail{display:none}
+#learn .pillar-body.show,
+#learn .sub-detail.show{display:block}
+#learn .sub{
+  margin:0;
+  padding:18px 20px;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  background:transparent;
+  display:block;
+  border-bottom:1px solid rgba(215,224,240,.8);
+}
+#learn .sub-title-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  padding:16px 18px;
+  border-radius:24px;
+}
+#learn .sub-title{font-size:18px;margin:0 0 6px}
+#learn .sub-picked{
+  flex:0 0 auto;
+  max-width:220px;
+  font-size:13px;
+  font-weight:850;
+  color:var(--muted);
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:999px;
+  padding:8px 12px;
+}
+#learn .sub-detail{padding:0 18px 18px}
+#learn .levels{grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px}
+#learn .level{
+  min-height:116px;
+  align-items:flex-start;
+  line-height:1.32;
+  padding:15px;
+  border-radius:22px;
+  transition:.18s ease;
+  display:flex;
+}
+#learn .level:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(40,60,110,.08)}
+#learn .level:nth-child(1){background:#fff1f5}
+#learn .level:nth-child(2){background:#eefbf7}
+#learn .level:nth-child(3),
+#learn .level:nth-child(4){background:#fbfdff}
+#learn .level.on{
+  background:linear-gradient(135deg,#dffbea,#eef9ff);
+  border-color:#58d98f;
+  box-shadow:0 12px 28px rgba(67,217,145,.15), inset 0 0 0 2px rgba(82,212,133,.25);
+}
+#learn .evidence-box{
+  margin-top:12px;
+  border-radius:24px;
+  padding:17px;
+  background:#fff;
+  border:1px dashed #c6d2e8;
+}
+#learn .chips{gap:9px}
+#learn .chip{padding:9px 13px;box-shadow:0 6px 16px rgba(40,60,110,.06);transition:.16s ease}
+#learn .chip:hover{transform:translateY(-1px)}
+#learn .chip.on{background:#17213f;color:#fff;border-color:#17213f}
+.result-card{
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(210,220,238,.95);
+  border-radius:28px;
+  padding:18px;
+  margin:0 0 14px;
+}
+.result-card h3{font-size:18px;margin-bottom:4px}
+.result-level{font-size:28px;font-weight:950;margin-bottom:4px}
+.result-text{color:var(--muted);font-size:14px;line-height:1.4;margin-bottom:12px}
+.bar{height:12px;border-radius:999px;background:#e7e8ef;overflow:hidden}
+.bar>div{height:100%;border-radius:999px;background:linear-gradient(90deg,#43e97b,#4facfe)}
+.calc-note{
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(210,220,238,.95);
+  border-radius:26px;
+  padding:18px;
+  color:var(--muted);
+  line-height:1.45;
+  font-size:14px;
+}
+.calc-note b{color:var(--ink);font-size:18px}
+#feel .emotion-grid{grid-template-columns:repeat(4,minmax(115px,1fr))}
+#feel .emotion{min-height:92px;border-radius:28px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px}
+#feel .emotion.on{
+  background:linear-gradient(135deg,#e7f8ff,#eafff3);
+  border-color:#77dca3;
+  box-shadow:0 16px 34px rgba(67,217,145,.18), inset 0 0 0 2px rgba(67,217,145,.18);
+}
+#feel .summary-card{min-height:180px}
+
+@media(max-width:1000px){
+  .topbar{align-items:flex-start}
+  #feel .two-col,
+  #learn .learn-layout{grid-template-columns:1fr}
+  #feel aside.panel,
+  #learn .learn-side{position:static}
+}
+@media(max-width:800px){
+  .topbar{display:grid;grid-template-columns:1fr}
+  .home-menu,.plan-grid{grid-template-columns:1fr}
+  .mentor-note{display:none}
+}
+@media(max-width:760px){
+  #learn .levels,
+  #feel .emotion-grid{grid-template-columns:1fr 1fr}
+  .bottom-pillars{gap:10px}
+  .pillar-icon{width:54px;height:54px;font-size:26px}
+}
+@media(max-width:560px){
+  .app{padding:20px 14px}
+  .toolbar{gap:10px;flex-wrap:wrap}
+  .back,.save,.ghost{width:100%;text-align:center}
+  #learn .levels,
+  #feel .emotion-grid{grid-template-columns:1fr}
+  #learn .sub-title-row{align-items:flex-start;flex-direction:column}
+  #learn .sub-picked{max-width:100%}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">∞</div>
+    <div>
+      <h1>✨ Mentorské prostředí</h1>
+      <div class="subtitle">Scioport miniappka pro mentorský rozhovor</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <div class="mentor-note">Pojmenuju prožívání, opřu reflexi učení o důkazy z portfolia a odcházím s malým plánem.</div>
+    <a class="ghost" href="index.html">← ScioPort</a>
+  </div>
+</header>
+
+<section id="home" class="screen active">
+  <div class="home-compact">
+    <div class="home-menu">
+      <button class="big-tab" data-go="feel">😊 Jak se mám <span>emoce, škola, mimo školu</span></button>
+      <button class="big-tab" data-go="learn">📚 Reflexe učení <span>pilíře, levely, důkazy</span></button>
+      <button class="big-tab" data-go="plan">🚀 Plánování <span>další krok a dohoda</span></button>
+    </div>
+  </div>
+</section>
+
+<section id="feel" class="screen">
+  <div class="toolbar">
+    <button class="back" data-go="home">← Hlavní stránka</button>
+    <button class="save" id="saveFeel">Uložit</button>
+  </div>
+  <div class="two-col">
+    <main class="panel">
+      <h2>Jak se mám?</h2>
+      <p class="lead">Vyber emoce a krátce popiš, co se děje ve škole i mimo ni.</p>
+      <div class="emotion-grid" id="emotionGrid"></div>
+      <div class="field">
+        <label for="feelingText">Co se teď ve mně děje?</label>
+        <textarea id="feelingText"></textarea>
+      </div>
+      <div class="field">
+        <label for="needText">Co bych teď potřeboval/a?</label>
+        <textarea id="needText"></textarea>
+      </div>
+      <div class="prompt-card">💭 <b>Mentorská otázka:</b> Co by se muselo stát, aby ses příští týden cítil/a o krok líp?</div>
+    </main>
+    <aside class="panel">
+      <h2>Souhrn</h2>
+      <div id="feelSummary" class="summary-card">Zatím nejsou vybrané emoce.</div>
+    </aside>
+  </div>
+</section>
+
+<section id="learn" class="screen">
+  <div class="toolbar">
+    <button class="back" data-go="home">← Hlavní stránka</button>
+    <button class="save" id="saveLearn">Uložit</button>
+  </div>
+  <div class="learn-layout">
+    <main class="learn-main panel">
+      <h2>Reflexe učení + důkazy z portfolia</h2>
+      <p class="lead">U každého podpilíře zvol level. Jakmile level označíš, hned pod ním se otevře výběr důkazů z portfolia. Bez důkazu se level počítá slaběji.</p>
+      <div id="learnMount"></div>
+    </main>
+    <aside class="learn-side panel">
+      <h2>Výsledek pilířů</h2>
+      <div id="resultMount"></div>
+      <div class="calc-note"><b>Výpočet</b><br>Level tvoří 75 % výsledku, důkaz 25 %. Přístav = potřebuju větší support, Moře = pracuju samostatně na menších věcech, Oceán = funguju autonomně.</div>
+    </aside>
+  </div>
+</section>
+
+<section id="plan" class="screen">
+  <div class="toolbar">
+    <button class="back" data-go="home">← Hlavní stránka</button>
+    <button class="save" id="savePlan">Uložit</button>
+  </div>
+  <main class="panel">
+    <h2>Plánování</h2>
+    <p class="lead">Z mentorského rozhovoru odcházím s malým, konkrétním krokem.</p>
+    <div class="plan-grid">
+      <div class="field">
+        <label for="planGoal">Na čem chci do příště pracovat?</label>
+        <textarea id="planGoal"></textarea>
+      </div>
+      <div class="field">
+        <label for="planProof">Jak poznáme, že se to povedlo?</label>
+        <textarea id="planProof"></textarea>
+      </div>
+      <div class="field">
+        <label for="planStep">Jaký je první malý krok?</label>
+        <textarea id="planStep"></textarea>
+      </div>
+      <div class="field">
+        <label for="planSupport">Kdo nebo co mi pomůže?</label>
+        <textarea id="planSupport"></textarea>
+      </div>
+    </div>
+  </main>
+</section>
+</div>
+
+<div class="bottom-pillars">
+  <div class="pillar-card">
+    <div class="pillar-icon zvidavost">?</div>
+    <div class="pillar-hover"><strong>Zvídavost · MOŘE 🌊</strong><br>Už pracuješ samostatně na menších výzvách.</div>
+  </div>
+  <div class="pillar-card">
+    <div class="pillar-icon hodnoty">♥</div>
+    <div class="pillar-hover"><strong>Hodnoty · OCEÁN 🌌</strong><br>Funguješ velmi autonomně a opíráš se o vlastní postoje.</div>
+  </div>
+  <div class="pillar-card">
+    <div class="pillar-icon samostatnost">↗</div>
+    <div class="pillar-hover"><strong>Samostatnost · PŘÍSTAV ⚓</strong><br>Tady ještě potřebuješ větší podporu a jasnější strukturu.</div>
+  </div>
+</div>
+
+<script>
+const STORE="scioportMentorCleanV1";
+const emotions=["😄 radost","😌 klid","🤔 zvědavost","🦁 hrdost","😶 nejistota","😵 stres","😢 smutek","😡 vztek"];
+const posts=[
+  {id:"p1",title:"Prezentace k Samorostu"},
+  {id:"p2",title:"Zápis z expedice"},
+  {id:"p3",title:"Reflexe skupinové práce"},
+  {id:"p4",title:"Dokončená šablona z matematiky"},
+  {id:"p5",title:"Projekt s AI obrázky"}
+];
+const pillars={
+  zvidavost:{name:"Zvídavost",subs:["Aktivita v hodinách","Kladení otázek","Práce se zdroji","Dokončování výzev"]},
+  hodnoty:{name:"Hodnoty",subs:["Spolupráce","Respekt v diskuzi","Odpovědnost za atmosféru","Sebereflexe"]},
+  samostatnost:{name:"Samostatnost",subs:["Příprava a úkoly","Průběžná práce","Plánování času","Žádání o pomoc"]}
+};
+const levelTexts=[
+  "0 · Potřebuju velkou podporu",
+  "1 · Zvládám se strukturou",
+  "2 · Většinou samostatně",
+  "3 · Autonomně a vědomě"
+];
+let state=JSON.parse(localStorage.getItem(STORE)||"{}");
+state.emotions=state.emotions||[];
+state.levels=state.levels||{};
+state.evidence=state.evidence||{};
+
+function save(){localStorage.setItem(STORE,JSON.stringify(state))}
+function go(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  const next=document.getElementById(id);
+  if(next){next.classList.add("active")}
+  window.scrollTo(0,0);
+}
+document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
+function key(pk,sub){return pk+"__"+sub}
+function calc(pk){
+  let subs=pillars[pk].subs,total=0,evidence=0;
+  subs.forEach(s=>{
+    let k=key(pk,s);
+    total+=Number(state.levels[k]||0);
+    if((state.evidence[k]||[]).length)evidence++;
+  });
+  let score=Math.round((total/(subs.length*3))*75+(evidence/subs.length)*25);
+  let label=score<35?"Přístav":score<75?"Moře":"Oceán";
+  return {score,label};
+}
+function renderEmotion(){
+  const grid=document.getElementById("emotionGrid");
+  grid.innerHTML=emotions.map(e=>`<div class="emotion ${state.emotions.includes(e)?"on":""}" data-e="${e}">${e}</div>`).join("");
+  grid.querySelectorAll(".emotion").forEach(el=>el.onclick=()=>{
+    let e=el.dataset.e;
+    state.emotions=state.emotions.includes(e)?state.emotions.filter(x=>x!==e):[...state.emotions,e];
+    save();
+    renderEmotion();
+  });
+  document.getElementById("feelSummary").innerHTML=state.emotions.length?`Dnes se objevuje: <b>${state.emotions.join(", ")}</b>.`:"Zatím nejsou vybrané emoce.";
+}
+function renderLearn(){
+  const m=document.getElementById("learnMount");
+  m.innerHTML=Object.entries(pillars).map(([pk,p])=>{
+    const c=calc(pk);
+    const open=state.openPillar===pk;
+    return `<div class="pillar-section ${open?"open":""}">
+      <div class="pillar-head clickable" data-pillar="${pk}">
+        <div>
+          <h3>${p.name}</h3>
+          <div class="small">${p.subs.length} podpilíře · level + důkaz</div>
+        </div>
+        <div class="score-badge">${c.score}%</div>
+      </div>
+      <div class="pillar-body ${open?"show":""}">
+        ${p.subs.map(s=>renderSub(pk,s)).join("")}
+      </div>
+    </div>`;
+  }).join("");
+
+  m.querySelectorAll(".pillar-head.clickable").forEach(el=>el.onclick=()=>{
+    const pk=el.dataset.pillar;
+    state.openPillar=state.openPillar===pk?null:pk;
+    save();
+    renderLearn();
+  });
+
+  m.querySelectorAll(".sub-title-row").forEach(el=>el.onclick=()=>{
+    const k=el.dataset.k;
+    state.openSub=state.openSub===k?null:k;
+    save();
+    renderLearn();
+  });
+
+  m.querySelectorAll(".level").forEach(el=>el.onclick=(e)=>{
+    if(e.target.classList.contains("chip"))return;
+    state.levels[el.dataset.k]=el.dataset.l;
+    state.openSub=el.dataset.k;
+    save();
+    renderLearn();
+  });
+
+  m.querySelectorAll(".chip").forEach(ch=>ch.onclick=(e)=>{
+    e.stopPropagation();
+    let k=ch.dataset.k,id=ch.dataset.post;
+    state.evidence[k]=state.evidence[k]||[];
+    state.evidence[k]=state.evidence[k].includes(id)?state.evidence[k].filter(x=>x!==id):[...state.evidence[k],id];
+    save();
+    renderLearn();
+  });
+
+  renderResults();
+}
+function renderResults(){
+  const r=document.getElementById("resultMount");
+  if(!r)return;
+  r.innerHTML=Object.entries(pillars).map(([pk,p])=>{
+    const c=calc(pk);
+    const text=c.label==="Přístav"?"Moc to zatím nedávám, potřebuju jasný support a bezpečný další krok.":c.label==="Moře"?"Už pracuju samostatně, hlavně na menších nebo jasně zadaných věcech.":"Funguju autonomně a umím pomoc nabídnout i druhým.";
+    return `<div class="result-card"><h3>${p.name}</h3><div class="result-level">${c.label}</div><div class="result-text">${text}</div><div class="bar"><div style="width:${c.score}%"></div></div><div class="small">${c.score}%</div></div>`;
+  }).join("");
+}
+function subHint(s){
+  const hints={
+    "Aktivita v hodinách":"Zapojení, otázky, reakce, chuť zkoušet.",
+    "Kladení otázek":"Ptám se tak, aby mě to vedlo dál.",
+    "Práce se zdroji":"Hledám informace, ověřuju a propojuju.",
+    "Dokončování výzev":"Dotahuju rozdělanou práci do výsledku.",
+    "Spolupráce":"Umím být užitečný/á ve skupině.",
+    "Respekt v diskuzi":"Naslouchám a reaguju věcně.",
+    "Odpovědnost za atmosféru":"Všímám si, co přináším do skupiny.",
+    "Sebereflexe":"Umím pojmenovat, co se daří a co zlepšit.",
+    "Příprava a úkoly":"Nosím věci, plním dohody a připravuju se.",
+    "Průběžná práce":"Nečekám jen na poslední chvíli.",
+    "Plánování času":"Vím, co kdy udělám.",
+    "Žádání o pomoc":"Umím si říct o podporu ve správný čas."
+  };
+  return hints[s]||"Krátký popis podpilíře.";
+}
+function renderSub(pk,s){
+  let k=key(pk,s),selected=state.levels[k],ev=state.evidence[k]||[];
+  const open=state.openSub===k;
+  const picked=selected!==undefined?levelTexts[selected]:"Ještě nevybráno";
+  return `<div class="sub ${open?"open":""}">
+    <div class="sub-title-row" data-k="${k}">
+      <div>
+        <div class="sub-title">${s}</div>
+        <div class="small">${subHint(s)}</div>
+      </div>
+      <div class="sub-picked">${picked}</div>
+    </div>
+    <div class="sub-detail ${open?"show":""}">
+      <div class="levels">
+        ${levelTexts.map((t,i)=>`<div class="level ${String(i)===String(selected)?"on":""}" data-k="${k}" data-l="${i}">${t}</div>`).join("")}
+      </div>
+      <div class="evidence-box ${selected!==undefined?"show":""}">
+        <b>Důkazy z portfolia k tomuto levelu</b>
+        <div class="small">Vyber jeden nebo víc příspěvků, které ukazují, že tento level opravdu platí.</div>
+        <div class="chips">${posts.map(p=>`<span class="chip ${ev.includes(p.id)?"on":""}" data-k="${k}" data-post="${p.id}">${p.title}</span>`).join("")}</div>
+        ${selected&&selected!=="0"&&ev.length===0?'<div class="warning">Level je vybraný, ale zatím bez důkazu.</div>':""}
+      </div>
+    </div>
+  </div>`;
+}
+["feelingText","needText","planGoal","planProof","planStep","planSupport"].forEach(id=>{
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.value=state[id]||"";
+  el.oninput=()=>{state[id]=el.value;save()};
+});
+document.querySelectorAll(".save").forEach(b=>b.onclick=()=>{
+  save();
+  b.textContent="Uloženo ✓";
+  setTimeout(()=>b.textContent="Uložit",900);
+});
+renderEmotion();
+renderLearn();
+</script>
+</body>
+</html>
