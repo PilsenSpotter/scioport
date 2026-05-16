@@ -2703,18 +2703,66 @@
     return String(error.message || error.details || error.hint || error.code || error || "").trim();
   }
 
-  async function verifyGuideAccessOnServer() {
-    if (!supabase || typeof supabase.rpc !== "function") {
-      return { allowed: false, error: new Error("Supabase RPC není dostupné.") };
+  async function verifyGuideAccessOnServer(userEmail) {
+    if (!supabase) {
+      return { allowed: false, error: new Error("Supabase není dostupné.") };
     }
+
+    if (typeof supabase.rpc === "function") {
+      try {
+        const { data, error } = await supabase.rpc("is_guide");
+        if (!error) {
+          return { allowed: data === true || data === "true", error: null };
+        }
+      } catch (_error) {
+        // Fall through to fallback query.
+      }
+    }
+
+    if (!userEmail) {
+      return { allowed: false, error: new Error("Supabase guide přístup se nepodařilo ověřit.") };
+    }
+
+    const normalizedEmail = normalizeEmail(userEmail);
+    if (!normalizedEmail) {
+      return { allowed: false, error: new Error("Email uživatele není k dispozici.") };
+    }
+
     try {
-      const { data, error } = await supabase.rpc("is_guide");
+      const { data, error } = await supabase
+        .from("guide_emails")
+        .select("email")
+        .eq("email_lower", normalizedEmail)
+        .maybeSingle();
+
       if (error) {
         return { allowed: false, error: error };
       }
-      return { allowed: data === true || data === "true", error: null };
+      return { allowed: Boolean(data && data.email), error: null };
     } catch (error) {
       return { allowed: false, error: error };
+    }
+  }
+
+  function renderLoginPrompt() {
+    const content = $("#content");
+    if (!content) {
+      return;
+    }
+    content.innerHTML =
+      '<div class="card">' +
+        '<h3>Přihlášení vyžadováno</h3>' +
+        '<div class="cardBody">Pro použití admin rozhraní se přihlas školním Google účtem.</div>' +
+        '<div style="margin-top:16px; display:flex; justify-content:center;">' +
+          '<button class="btn primary" id="adminLoginButton" type="button">Přihlásit se</button>' +
+        '</div>' +
+      '</div>';
+
+    const loginButton = $("adminLoginButton");
+    if (loginButton) {
+      loginButton.addEventListener("click", function () {
+        window.location.href = getLoginUrl();
+      });
     }
   }
 
@@ -6999,12 +7047,12 @@
         if (!user || !user.uid) {
           closeStudentOverviewPostModal();
           currentUser = null;
-          window.location.replace(getLoginUrl());
+          renderLoginPrompt();
           return;
         }
 
         const clientGuideAllowed = hasGuideAccess(user.email);
-        const serverGuideAccess = await verifyGuideAccessOnServer();
+        const serverGuideAccess = await verifyGuideAccessOnServer(user.email);
         if (!clientGuideAllowed && !serverGuideAccess.allowed) {
           await denyGuideAccess();
           return;
