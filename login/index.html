@@ -83,7 +83,38 @@
         window.location.href = postLoginUrl;
       }
 
-      function redirectIfSignedIn() {
+      async function processOAuthCallback() {
+        if (!window.supabaseClient) {
+          return;
+        }
+
+        const url = new URL(window.location.href);
+        const hasAuthParams = url.searchParams.has("access_token")
+          || url.searchParams.has("refresh_token")
+          || url.hash.includes("access_token")
+          || url.hash.includes("refresh_token");
+
+        if (!hasAuthParams) {
+          return;
+        }
+
+        try {
+          if (typeof window.supabaseClient.auth.getSessionFromUrl === "function") {
+            const { data, error } = await window.supabaseClient.auth.getSessionFromUrl({ storeSession: true });
+            if (error) {
+              console.error("Supabase callback parsing failed:", error.message);
+              return;
+            }
+            if (data && data.session) {
+              await handleSignedInSession(data.session);
+            }
+          }
+        } catch (error) {
+          console.error("Error processing OAuth callback:", error);
+        }
+      }
+
+      async function redirectIfSignedIn() {
         if (!window.supabaseClient) {
           return;
         }
@@ -97,24 +128,25 @@
           await handleSignedInSession(session);
         });
 
-        window.setTimeout(async function () {
-          if (redirected) {
-            return;
-          }
-          const { data } = await window.supabaseClient.auth.getSession();
-          const session = data && data.session ? data.session : null;
-          if (session) {
-            redirected = true;
-            await handleSignedInSession(session);
-          }
-          const subscription = subscriptionResult && subscriptionResult.data
-            ? subscriptionResult.data.subscription
-            : null;
-          if (subscription && typeof subscription.unsubscribe === "function") {
-            subscription.unsubscribe();
-          }
-        }, 900);
+        const { data } = await window.supabaseClient.auth.getSession();
+        const session = data && data.session ? data.session : null;
+        if (session && !redirected) {
+          redirected = true;
+          await handleSignedInSession(session);
+        }
+
+        const subscription = subscriptionResult && subscriptionResult.data
+          ? subscriptionResult.data.subscription
+          : null;
+        if (subscription && typeof subscription.unsubscribe === "function") {
+          subscription.unsubscribe();
+        }
       }
+
+      (async function () {
+        await processOAuthCallback();
+        await redirectIfSignedIn();
+      })();
 
       document.querySelector(".login-button").onclick = async function () {
         if (!window.supabaseClient) {
