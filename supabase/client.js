@@ -24,9 +24,9 @@
 
   window.supabaseClient = window.supabase.createClient(url, anonKey, {
     auth: {
-      // OAuth returns a session in the URL hash; this enables parsing it.
+      // OAuth returns a session in the URL hash or query, and PKCE is the safer modern flow.
       detectSessionInUrl: true,
-      flowType: "implicit",
+      flowType: "pkce",
       persistSession: true,
       autoRefreshToken: true
     }

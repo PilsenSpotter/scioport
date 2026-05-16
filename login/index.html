@@ -22,8 +22,8 @@
 
     <script>
       const AUTH_RETURN_TO_STORAGE_KEY = "scioport-auth-return-to";
-      const homeUrl = new URL("../index.html", window.location.href).toString();
-      const loginCallbackUrl = new URL("index.html", window.location.href).toString();
+      const homeUrl = new URL("/index.html", window.location.origin).toString();
+      const loginCallbackUrl = new URL("/login/index.html", window.location.origin).toString();
 
       function getSameOriginReturnUrl(value) {
         if (!value) {
