@@ -6261,6 +6261,17 @@ body.theme-dark .student-work-stage {
     box-shadow: none;
 }
 
+body.theme-dark .student-work-panel--buttons,
+body.theme-dark .student-work-panel--form {
+    background: transparent;
+}
+
+body.theme-dark .student-work-orbit::before {
+    content: none;
+    background: transparent;
+    box-shadow: none;
+}
+
 body.theme-dark .student-work-form,
 body.theme-dark .student-reflect-card,
 body.theme-dark .template-panel,
