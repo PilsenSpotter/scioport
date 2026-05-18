@@ -5412,10 +5412,7 @@ body.theme-dark .student-work-post-comment-badge {
         radial-gradient(900px 520px at 8% -8%, rgba(255, 190, 106, 0.42), transparent 58%),
         radial-gradient(820px 520px at 96% 6%, rgba(87, 185, 192, 0.2), transparent 60%),
         linear-gradient(145deg, #fffaf4 0%, #fff0de 52%, #f6fbff 100%);
-    --portfolio-page-bg-dark:
-        radial-gradient(900px 520px at 8% -8%, rgba(255, 154, 60, 0.2), transparent 58%),
-        radial-gradient(820px 520px at 96% 6%, rgba(87, 185, 192, 0.14), transparent 60%),
-        linear-gradient(145deg, #1b120b 0%, #26180f 52%, #151f24 100%);
+    --portfolio-page-bg-dark: var(--portfolio-page-bg);
 }
 
 html {
