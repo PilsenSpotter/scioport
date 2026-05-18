@@ -2013,6 +2013,7 @@ body.theme-dark .student-work[data-outfit="red-blue-shirt"] {
     cursor: pointer;
     display: grid;
     place-items: center;
+    text-decoration: none;
     backdrop-filter: blur(14px);
     box-shadow:
         0 12px 0 var(--student-btn-shadow, rgba(16, 24, 38, 0.24)),
@@ -2028,6 +2029,7 @@ body.theme-dark .student-work[data-outfit="red-blue-shirt"] {
         0 26px 36px rgba(16, 24, 38, 0.22),
         inset 0 1px 0 rgba(255, 255, 255, 0.36);
     filter: saturate(1.04);
+    text-decoration: none;
 }
 
 .student-work-button:active {
