@@ -2611,6 +2611,7 @@
   </section>
 
   <script>
+  (function () {
   const $ = (selector, root) => (root || document).querySelector(selector);
 
   function esc(value) {
@@ -2653,7 +2654,6 @@
     ? window.SCIO_GUIDE_EMAILS.map(function (item) { return String(item || "").trim().toLowerCase(); }).filter(Boolean)
     : [
       "oliver.bocko@scioskola.cz",
-      "tobias.pokorny@scioskola.cz",
       "jiri.prevorovsky@scioskola.cz"
     ];
 
@@ -7119,6 +7119,7 @@
   }
 
   init();
+  })();
 </script>
 </body>
 </html>

@@ -12,9 +12,14 @@ create table if not exists public.guide_emails (
 insert into public.guide_emails(email)
 values
   ('oliver.bocko@scioskola.cz'),
-  ('tobias.pokorny@scioskola.cz'),
   ('jiri.prevorovsky@scioskola.cz')
 on conflict (email) do nothing;
+
+delete from public.guide_emails
+where lower(email) not in (
+  'oliver.bocko@scioskola.cz',
+  'jiri.prevorovsky@scioskola.cz'
+);
 
 create unique index if not exists guide_emails_email_lower_unique on public.guide_emails(lower(email));
 
