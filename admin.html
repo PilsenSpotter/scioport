@@ -2526,8 +2526,8 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase/config.js"></script>
-  <script src="supabase/client.js"></script>
+  <script src="supabase/config.js?v=2026-05-19-admin-data"></script>
+  <script src="supabase/client.js?v=2026-05-19-admin-data"></script>
 </head>
 <body>
   <div class="app">
@@ -2732,7 +2732,7 @@
       const { data, error } = await supabase
         .from("guide_emails")
         .select("email")
-        .eq("email_lower", normalizedEmail)
+        .ilike("email", normalizedEmail)
         .maybeSingle();
 
       if (error) {
@@ -2758,7 +2758,7 @@
         '</div>' +
       '</div>';
 
-    const loginButton = $("adminLoginButton");
+    const loginButton = $("#adminLoginButton");
     if (loginButton) {
       loginButton.addEventListener("click", function () {
         window.location.href = getLoginUrl();
@@ -6564,8 +6564,8 @@
     try {
       const { data: rows, error } = await supabase
         .from("profiles")
-        .select("id,email,display_name,name,class_name,email_lower")
-        .order("email_lower", { ascending: true })
+        .select("id,email,display_name,name,class_name")
+        .order("email", { ascending: true })
         .limit(1000);
       if (error) {
         throw error;
@@ -6635,8 +6635,8 @@
 
       const { data: rows, error } = await supabase
         .from("subjects")
-        .select("name,value,name_lower")
-        .order("name_lower", { ascending: true })
+        .select("name,value")
+        .order("name", { ascending: true })
         .limit(1000);
       if (error) {
         throw error;
