@@ -2105,6 +2105,10 @@ body.theme-dark .student-work[data-outfit="red-blue-shirt"] {
     margin-right: 18px;
 }
 
+.student-work-button--skill-tree {
+    margin-right: 18px;
+}
+
 .student-work-icon {
     width: 30px;
     height: 30px;

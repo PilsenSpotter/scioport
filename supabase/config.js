@@ -14,5 +14,6 @@ window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXB
 window.SCIO_ALLOWED_DOMAIN = "scioskola.cz";
 window.SCIO_GUIDE_EMAILS = [
   "oliver.bocko@scioskola.cz",
+  "tobias.pokorny@scioskola.cz",
   "jiri.prevorovsky@scioskola.cz"
 ];

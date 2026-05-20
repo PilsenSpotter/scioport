@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scioport - Skill Tree</title>
+  <style>
+    :root{
+      --ink:#2b2119;
+      --orange:#ff8a00;
+      --blue:#6657ff;
+      --red:#f2643d;
+      --green:#18a96e;
+      --ease:cubic-bezier(.2,.8,.2,1);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--ink);
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 72% 18%, rgba(255,255,255,.78) 0 7%, transparent 23%),
+        radial-gradient(circle at 18% 82%, rgba(255,147,38,.24) 0 0, transparent 34%),
+        linear-gradient(135deg,#fff7e6 0%, #ffe8bd 45%, #fff3d8 100%);
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,.9) 0 1px, transparent 1.7px),
+        radial-gradient(circle, rgba(255,142,19,.24) 0 1px, transparent 1.9px),
+        radial-gradient(circle at 75% 20%, rgba(255,175,63,.2), transparent 16%),
+        radial-gradient(circle at 55% 60%, rgba(255,255,255,.24), transparent 20%);
+      background-size:110px 110px,170px 170px,100% 100%,100% 100%;
+      pointer-events:none;
+      opacity:.82;
+    }
+
+    .home-link{
+      position:fixed;
+      top:18px;
+      left:18px;
+      z-index:1200;
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      padding:12px 16px;
+      border-radius:999px;
+      background:rgba(255,255,255,.88);
+      color:#6a4e3d;
+      text-decoration:none;
+      font-weight:950;
+      border:1.5px solid rgba(255,255,255,.9);
+      box-shadow:0 16px 34px rgba(79,49,10,.14), inset 0 1px 10px rgba(255,255,255,.65);
+      backdrop-filter:blur(14px);
+    }
+
+    .skill-tree-app{
+      position:relative;
+      width:100vw;
+      height:100vh;
+      overflow:auto;
+      overscroll-behavior:contain;
+      cursor:grab;
+    }
+
+    .skill-tree-app.is-panning{cursor:grabbing}
+    .skill-tree-app.is-panning .world{transition:none}
+
+    .world{
+      position:relative;
+      width:2320px;
+      height:1600px;
+      transform:scale(var(--zoom,.72));
+      transform-origin:0 0;
+      transition:transform .78s cubic-bezier(.22,.9,.22,1);
+    }
+
+    .canvas{
+      position:absolute;
+      left:400px;
+      top:372px;
+      width:1280px;
+      height:820px;
+      overflow:visible;
+    }
+
+    .mini-planet{
+      position:absolute;
+      right:11%;
+      top:10%;
+      width:180px;
+      height:90px;
+      background:radial-gradient(ellipse at 35% 50%, rgba(255,182,64,.24), transparent 65%);
+      transform:rotate(-18deg);
+      pointer-events:none;
+      opacity:.95;
+    }
+    .mini-planet::before{
+      content:"";
+      position:absolute;
+      left:30px;
+      top:28px;
+      width:112px;
+      height:40px;
+      border-radius:50%;
+      border:2px solid rgba(255,181,66,.3);
+      border-left-color:transparent;
+      border-right-color:transparent;
+      transform:rotate(-13deg);
+    }
+
+    .orbit{
+      position:absolute;
+      left:50%;
+      top:52%;
+      width:455px;
+      height:275px;
+      border:1.5px solid rgba(255,255,255,.72);
+      border-radius:50%;
+      transform:translate(-50%,-50%) rotate(-3deg);
+      opacity:.72;
+      pointer-events:none;
+    }
+    .orbit::before,.orbit::after{
+      content:"";
+      position:absolute;
+      width:9px;
+      height:9px;
+      border-radius:50%;
+      background:#ffbc4a;
+      box-shadow:0 0 0 4px rgba(255,188,74,.18);
+    }
+    .orbit::before{left:5%;top:46%}
+    .orbit::after{right:8%;top:47%}
+
+    .center-spark{
+      position:absolute;
+      left:50%;
+      top:52%;
+      width:54px;
+      height:54px;
+      transform:translate(-50%,-50%);
+      filter:drop-shadow(0 0 20px rgba(255,255,255,.7));
+      pointer-events:none;
+      z-index:2;
+    }
+    .center-spark::before{
+      content:"✦";
+      font-size:48px;
+      color:white;
+    }
+
+    svg.lines{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      overflow:visible;
+      pointer-events:none;
+      filter:drop-shadow(0 0 9px rgba(255,255,255,.4));
+      z-index:1;
+    }
+    .line{
+      fill:none;
+      stroke-width:2.1;
+      stroke-linecap:round;
+      opacity:.82;
+    }
+    .line.blue{stroke:url(#blueGrad)}
+    .line.red{stroke:url(#redGrad)}
+    .line.green{stroke:url(#greenGrad)}
+    .core-line{
+      fill:none;
+      stroke:rgba(255,255,255,.74);
+      stroke-width:2;
+      stroke-linecap:round;
+    }
+
+    .tree-node{
+      position:absolute;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      user-select:none;
+      cursor:pointer;
+      transition:transform .24s var(--ease), filter .24s var(--ease), box-shadow .24s var(--ease);
+      z-index:20;
+    }
+    .tree-node:hover{
+      transform:translate(-50%,-50%) translate(var(--fx,0px),var(--fy,0px)) scale(1.055)!important;
+      z-index:40;
+    }
+    .tree-node.selected{z-index:45;filter:saturate(1.2)}
+
+    .core{
+      width:166px;
+      height:166px;
+      border-radius:50%;
+      flex-direction:column;
+      gap:10px;
+      color:white;
+      font-weight:950;
+      font-size:21px;
+      letter-spacing:-.3px;
+      transform:translate(-50%,-50%);
+      border:1.5px solid rgba(255,255,255,.58);
+      box-shadow:0 0 0 9px rgba(255,255,255,.16),0 28px 60px rgba(70,45,0,.23),inset 0 1px 18px rgba(255,255,255,.32);
+      z-index:54;
+    }
+    .core > svg{width:35px;height:35px;stroke-width:2.1}
+    .core.blue{background:radial-gradient(circle at 36% 28%,#9d96ff,#5644ee 60%,#3621b7)}
+    .core.red{background:radial-gradient(circle at 35% 28%,#ffb070,#f26a35 57%,#d3351f)}
+    .core.green{background:radial-gradient(circle at 35% 26%,#58e5aa,#10a36b 58%,#00774b)}
+
+    .completion-orbit{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:300px;
+      height:300px;
+      transform:translate(-50%,-50%);
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .45s var(--ease), filter .45s var(--ease);
+      color:#ff9b17;
+      z-index:-1;
+      filter:drop-shadow(0 0 18px rgba(255,155,23,.35));
+    }
+    .completion-orbit svg{width:100%;height:100%;overflow:visible}
+    .core.complete .completion-orbit{opacity:1}
+    .core.blue .completion-orbit{color:#6657ff}
+    .core.green .completion-orbit{color:#18a96e}
+    .atom-ring{transform-origin:64px 64px;animation:atom-spin 7.5s linear infinite}
+    .atom-ring.r2{animation-duration:9.5s;animation-direction:reverse;transform:rotate(60deg)}
+    .atom-ring.r3{animation-duration:11s;transform:rotate(120deg)}
+    .atom-ring.r4{animation-duration:8.5s;animation-direction:reverse;transform:rotate(180deg)}
+    .atom-orbit-soft{stroke:currentColor;opacity:.20}
+    .atom-orbit-mid{stroke:currentColor;opacity:.42;stroke-dasharray:48 240;animation:atom-dash 2.6s linear infinite}
+    .atom-orbit-hot{stroke:currentColor;opacity:.92;stroke-dasharray:24 265;animation:atom-dash 1.8s linear infinite reverse}
+    .atom-electron{stroke:white;stroke-width:8;stroke-dasharray:1 289;filter:drop-shadow(0 0 8px rgba(255,255,255,.95));animation:atom-dash 2.2s linear infinite}
+    @keyframes atom-spin{to{transform:rotate(360deg)}}
+    @keyframes atom-dash{to{stroke-dashoffset:-290}}
+
+    .pillar-orbit{
+      --orbit-r:104px;
+      --dot:12px;
+      --duration:2.8s;
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:0;
+      height:0;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity .25s var(--ease);
+    }
+    .core.has-orbit .pillar-orbit{opacity:1}
+    .pillar-orbit span{
+      position:absolute;
+      left:0;
+      top:0;
+      width:var(--dot);
+      height:var(--dot);
+      margin-left:calc(var(--dot) / -2);
+      margin-top:calc(var(--dot) / -2);
+      border-radius:50%;
+      background:#ff9b17;
+      transform-origin:0 0;
+      animation:orbit-spin var(--duration) linear infinite;
+      box-shadow:0 0 0 5px rgba(255,155,23,.18),0 0 18px rgba(255,132,0,.72);
+    }
+    .core.blue .pillar-orbit span{background:#9d96ff;box-shadow:0 0 0 5px rgba(102,87,255,.16),0 0 18px rgba(102,87,255,.72)}
+    .core.green .pillar-orbit span{background:#5bd69e;box-shadow:0 0 0 5px rgba(24,169,110,.16),0 0 18px rgba(24,169,110,.72)}
+    @keyframes orbit-spin{
+      from{transform:rotate(var(--start-angle,0deg)) translateX(var(--orbit-r))}
+      to{transform:rotate(calc(var(--start-angle,0deg) + 360deg)) translateX(var(--orbit-r))}
+    }
+
+    .sub{
+      width:176px;
+      min-height:78px;
+      padding:10px 13px;
+      border-radius:25px;
+      color:white;
+      flex-direction:column;
+      gap:5px;
+      font-size:13.5px;
+      line-height:1.13;
+      font-weight:900;
+      transform:translate(-50%,-50%);
+      border:1px solid rgba(255,255,255,.55);
+      box-shadow:0 13px 28px rgba(61,45,10,.18),inset 0 1px 12px rgba(255,255,255,.28);
+      z-index:52;
+    }
+    .sub svg{width:24px;height:24px;flex:0 0 auto;stroke-width:2.05}
+    .sub span{max-width:152px;display:block}
+    .sub.blue{background:linear-gradient(135deg,#8d83ff,#5747e9)}
+    .sub.red{background:linear-gradient(135deg,#ff9369,#ee5835)}
+    .sub.green{background:linear-gradient(135deg,#63d89d,#12a870)}
+    .sub.inactive{filter:saturate(.72) brightness(.98)}
+    .sub.blue.inactive{background:linear-gradient(135deg,#b8b6d6,#9692bf)!important}
+    .sub.red.inactive{background:linear-gradient(135deg,#d7b8b0,#be9890)!important}
+    .sub.green.inactive{background:linear-gradient(135deg,#b5d4c3,#90b6a3)!important}
+    .sub.glow-1{filter:saturate(.96) brightness(1.01)!important}
+    .sub.glow-2{filter:saturate(1.03) brightness(1.035)!important}
+    .sub.glow-3{filter:saturate(1.09) brightness(1.055)!important}
+    .sub.glow-4{filter:saturate(1.15) brightness(1.075)!important}
+    .sub.blue.glow-1{box-shadow:0 0 0 4px rgba(102,87,255,.10),0 0 14px rgba(102,87,255,.16),0 10px 20px rgba(61,45,10,.12),inset 0 1px 10px rgba(255,255,255,.24)!important}
+    .sub.blue.glow-2{box-shadow:0 0 0 5px rgba(102,87,255,.13),0 0 19px rgba(102,87,255,.24),0 12px 24px rgba(61,45,10,.13),inset 0 1px 10px rgba(255,255,255,.27)!important}
+    .sub.blue.glow-3{box-shadow:0 0 0 6px rgba(102,87,255,.16),0 0 25px rgba(102,87,255,.32),0 14px 27px rgba(61,45,10,.15),inset 0 1px 12px rgba(255,255,255,.31)!important}
+    .sub.blue.glow-4{box-shadow:0 0 0 7px rgba(102,87,255,.18),0 0 30px rgba(102,87,255,.42),0 15px 31px rgba(61,45,10,.18),inset 0 1px 14px rgba(255,255,255,.34)!important}
+    .sub.red.glow-1{box-shadow:0 0 0 4px rgba(242,100,61,.10),0 0 14px rgba(242,100,61,.16),0 10px 20px rgba(61,45,10,.12),inset 0 1px 10px rgba(255,255,255,.24)!important}
+    .sub.red.glow-2{box-shadow:0 0 0 5px rgba(242,100,61,.13),0 0 19px rgba(242,100,61,.24),0 12px 24px rgba(61,45,10,.13),inset 0 1px 10px rgba(255,255,255,.27)!important}
+    .sub.red.glow-3{box-shadow:0 0 0 6px rgba(242,100,61,.16),0 0 25px rgba(242,100,61,.32),0 14px 27px rgba(61,45,10,.15),inset 0 1px 12px rgba(255,255,255,.31)!important}
+    .sub.red.glow-4{box-shadow:0 0 0 7px rgba(242,100,61,.18),0 0 30px rgba(242,100,61,.42),0 15px 31px rgba(61,45,10,.18),inset 0 1px 14px rgba(255,255,255,.34)!important}
+    .sub.green.glow-1{box-shadow:0 0 0 4px rgba(24,169,110,.10),0 0 14px rgba(24,169,110,.16),0 10px 20px rgba(61,45,10,.12),inset 0 1px 10px rgba(255,255,255,.24)!important}
+    .sub.green.glow-2{box-shadow:0 0 0 5px rgba(24,169,110,.13),0 0 19px rgba(24,169,110,.24),0 12px 24px rgba(61,45,10,.13),inset 0 1px 10px rgba(255,255,255,.27)!important}
+    .sub.green.glow-3{box-shadow:0 0 0 6px rgba(24,169,110,.16),0 0 25px rgba(24,169,110,.32),0 14px 27px rgba(61,45,10,.15),inset 0 1px 12px rgba(255,255,255,.31)!important}
+    .sub.green.glow-4{box-shadow:0 0 0 7px rgba(24,169,110,.18),0 0 30px rgba(24,169,110,.42),0 15px 31px rgba(61,45,10,.18),inset 0 1px 14px rgba(255,255,255,.34)!important}
+
+    .level{
+      width:66px;
+      height:66px;
+      border-radius:50%;
+      flex-direction:column;
+      background:rgba(255,255,255,.44);
+      backdrop-filter:blur(8px);
+      transform:translate(-50%,-50%) translate(var(--fx,0px),var(--fy,0px));
+      font-weight:900;
+      line-height:1.06;
+      border:1.5px solid currentColor;
+      box-shadow:0 8px 18px rgba(68,42,5,.11),inset 0 1px 10px rgba(255,255,255,.6);
+      padding:6px;
+      will-change:transform;
+      z-index:42;
+    }
+    .level .num{font-size:17px}
+    .level .txt{font-size:9.5px;margin-top:3px;max-width:52px}
+    .level.blue{color:#5142dd;background:rgba(238,234,255,.66)}
+    .level.red{color:#ef5c34;background:rgba(255,235,221,.68)}
+    .level.green{color:#078d5d;background:rgba(225,252,238,.7)}
+    .level.pending{
+      color:#fff!important;
+      border-color:rgba(255,255,255,.82)!important;
+      transform:translate(-50%,-50%) translate(var(--fx,0px),var(--fy,0px)) scale(1.055)!important;
+      filter:saturate(1.15) brightness(1.04)!important;
+    }
+    .level.blue.pending{background:radial-gradient(circle at 35% 28%,#d2ceff,#8579ff 58%,#5d4be5 100%)!important}
+    .level.red.pending{background:radial-gradient(circle at 35% 28%,#ffc8ae,#ff875f 58%,#e75736 100%)!important}
+    .level.green.pending{background:radial-gradient(circle at 35% 28%,#a3f0ca,#43c987 58%,#159362 100%)!important}
+    .level.chosen{
+      color:#fff!important;
+      border-color:rgba(255,255,255,.86)!important;
+      transform:translate(-50%,-50%) translate(var(--fx,0px),var(--fy,0px)) scale(1.10)!important;
+    }
+    .level.blue.chosen{background:radial-gradient(circle at 35% 28%,#b8b1ff,#6657ff 58%,#3f2ec7 100%)!important;box-shadow:0 0 0 7px rgba(102,87,255,.20),0 0 30px rgba(102,87,255,.58),0 13px 28px rgba(64,46,199,.26),inset 0 1px 14px rgba(255,255,255,.42)!important}
+    .level.red.chosen{background:radial-gradient(circle at 35% 28%,#ffb391,#f2643d 58%,#cf351f 100%)!important;box-shadow:0 0 0 7px rgba(242,100,61,.20),0 0 30px rgba(242,100,61,.58),0 13px 28px rgba(207,53,31,.26),inset 0 1px 14px rgba(255,255,255,.42)!important}
+    .level.green.chosen{background:radial-gradient(circle at 35% 28%,#7ee8b5,#18a96e 58%,#00774b 100%)!important;box-shadow:0 0 0 7px rgba(24,169,110,.20),0 0 30px rgba(24,169,110,.58),0 13px 28px rgba(0,119,75,.26),inset 0 1px 14px rgba(255,255,255,.42)!important}
+
+    .panel-bubble,
+    .node-bubble,
+    .level-hover-tip,
+    .evidence-bubble,
+    .evidence-detail-bubble{
+      position:fixed;
+      left:0;
+      top:0;
+      z-index:980;
+      width:300px;
+      max-width:min(300px,calc(100vw - 24px));
+      padding:16px 16px 14px;
+      border-radius:20px;
+      background:rgba(255,255,255,.96);
+      border:1.5px solid rgba(255,255,255,.9);
+      box-shadow:0 18px 42px rgba(71,47,17,.18),inset 0 1px 10px rgba(255,255,255,.45);
+      backdrop-filter:blur(16px);
+      color:#5d4638;
+      opacity:0;
+      pointer-events:none;
+      transform:translateY(8px) scale(.98);
+      transition:opacity .18s ease,transform .18s ease;
+    }
+    .node-bubble.open,
+    .level-hover-tip.open,
+    .evidence-bubble.open,
+    .evidence-detail-bubble.open{
+      opacity:1;
+      transform:translateY(0) scale(1);
+      pointer-events:auto;
+    }
+    .node-bubble h3,
+    .level-hover-tip h3,
+    .evidence-bubble h3,
+    .evidence-detail-bubble h4{
+      margin:0 0 4px;
+      font-size:18px;
+      line-height:1.1;
+      letter-spacing:-.02em;
+      font-weight:950;
+      color:#4f3d32;
+    }
+    .node-bubble .kind,
+    .level-hover-tip .kind,
+    .evidence-detail-meta{
+      margin:0 0 8px;
+      font-size:12px;
+      font-weight:900;
+      color:#b57a51;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+    .node-bubble p,
+    .level-hover-tip p,
+    .evidence-bubble p{
+      margin:0;
+      font-size:14px;
+      line-height:1.42;
+      color:#735847;
+      font-weight:750;
+    }
+    .node-bubble::after,
+    .level-hover-tip::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      bottom:-10px;
+      width:18px;
+      height:18px;
+      transform:translateX(-50%) rotate(45deg);
+      background:rgba(255,255,255,.96);
+      border-right:1.5px solid rgba(255,255,255,.9);
+      border-bottom:1.5px solid rgba(255,255,255,.9);
+    }
+    .node-bubble.below::after,
+    .level-hover-tip.below::after{
+      bottom:auto;
+      top:-10px;
+      border-right:none;
+      border-bottom:none;
+      border-left:1.5px solid rgba(255,255,255,.9);
+      border-top:1.5px solid rgba(255,255,255,.9);
+    }
+
+    .evidence-bubble,
+    .evidence-detail-bubble{
+      z-index:990;
+      width:340px;
+      max-width:calc(100vw - 24px);
+      padding:17px;
+      border-radius:22px;
+    }
+    .evidence-bubble h3{margin-right:32px}
+    .evidence-close{
+      position:absolute;
+      top:12px;
+      right:12px;
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      border:0;
+      background:#fff2e3;
+      color:#ff8a1f;
+      font-size:20px;
+      font-weight:950;
+      cursor:pointer;
+    }
+    .evidence-list{display:grid;gap:8px;margin:12px 0 13px}
+    .evidence-item{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 11px;
+      border-radius:15px;
+      background:#fff7ed;
+      border:1px solid rgba(255,154,60,.22);
+      cursor:pointer;
+      font-size:13px;
+      font-weight:850;
+    }
+    .evidence-item.is-active{background:#fff0da;border-color:rgba(255,154,60,.42);box-shadow:0 0 0 4px rgba(255,154,60,.10)}
+    .evidence-item input{accent-color:#ff8a1f;width:17px;height:17px}
+    .evidence-save{
+      width:100%;
+      border:0;
+      border-radius:16px;
+      padding:11px 14px 13px;
+      background:#ff9a3c;
+      box-shadow:0 6px 0 #e56a00;
+      color:white;
+      font-weight:950;
+      cursor:pointer;
+    }
+    .evidence-save:active{transform:translateY(6px);box-shadow:none}
+    .evidence-detail-card{
+      margin:0 0 12px;
+      padding:12px 13px;
+      border-radius:16px;
+      background:#fff7ed;
+      border:1px solid rgba(255,154,60,.20);
+      color:#6d5445;
+      font-size:13.5px;
+      line-height:1.4;
+      font-weight:760;
+    }
+    .evidence-detail-label{
+      display:block;
+      margin:0 0 8px;
+      font-size:13px;
+      font-weight:900;
+      color:#4f3d32;
+      line-height:1.35;
+    }
+    .evidence-detail-input{
+      width:100%;
+      resize:none;
+      border:1.5px solid rgba(255,154,60,.24);
+      border-radius:15px;
+      padding:12px 13px;
+      font:inherit;
+      font-size:13.5px;
+      line-height:1.42;
+      color:#5d4638;
+      background:#fffdfa;
+      outline:none;
+    }
+    .evidence-detail-input:focus{border-color:rgba(255,154,60,.55);box-shadow:0 0 0 4px rgba(255,154,60,.12)}
+
+    .hover-proof-block{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,154,60,.18)}
+    .hover-proof-subtitle{margin:0 0 7px;font-size:12px;font-weight:900;color:#b57a51;text-transform:uppercase;letter-spacing:.08em}
+    .hover-proof-list{margin:0 0 8px 18px;padding:0;color:#5d4638;font-size:13.5px;line-height:1.38;font-weight:760}
+    .hover-proof-note{font-size:13.5px;line-height:1.42;color:#735847;font-weight:760}
+
+    .side-summary{
+      position:absolute;
+      left:1500px;
+      top:30px;
+      width:330px;
+      transform-origin:top left;
+      transition:transform .22s ease, opacity .22s ease;
+      z-index:60;
+      display:flex;
+      flex-direction:column;
+      gap:22px;
+      color:#6d4c38;
+      cursor:grab;
+    }
+    .side-summary.is-floating{z-index:220}
+    .side-summary.is-closed{opacity:0;pointer-events:none;transform:translateX(24px) scale(.98)!important}
+    .summary-card{
+      position:relative;
+      border-radius:28px;
+      padding:24px 24px 22px;
+      background:rgba(255,255,255,.58);
+      backdrop-filter:blur(18px);
+      box-shadow:0 24px 70px rgba(105,63,16,.16);
+      border:1px solid rgba(255,255,255,.78);
+    }
+    .summary-close{
+      position:absolute;
+      top:16px;
+      right:16px;
+      width:34px;
+      height:34px;
+      border-radius:50%;
+      border:1px solid rgba(255,255,255,.72);
+      background:rgba(255,255,255,.68);
+      color:#7a6a5d;
+      font-size:22px;
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+    }
+    .summary-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+    .summary-head h2,.mentor-tip h2{margin:0;font-size:21px;line-height:1.1;letter-spacing:-.02em;color:#5f4636;font-weight:950}
+    .info-dot{width:21px;height:21px;border-radius:50%;border:2px solid rgba(163,106,66,.45);display:grid;place-items:center;font-size:13px;font-weight:950;color:#b77b50}
+    .legend-list{display:grid;gap:16px}
+    .legend-row{display:grid;grid-template-columns:44px 1fr;gap:14px;align-items:center}
+    .legend-num{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-size:20px;font-weight:950;background:rgba(255,255,255,.42);border:2px solid currentColor}
+    .legend-row strong{display:block;font-size:15px;color:#5a4437;line-height:1.05;margin-bottom:3px;font-weight:950}
+    .legend-text{display:block;font-size:13px;color:#8b6b58;font-weight:800}
+    .legend-num.l1{color:#7566ed}
+    .legend-num.l2{color:#ef7a36}
+    .legend-num.l3{color:#18a96e}
+    .legend-num.l4{color:#6657ff}
+    .summary-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(126,83,50,.18),transparent);margin:22px 0 18px}
+    .overview-title{margin:0 0 17px;font-size:18px;color:#6a4e3d;font-weight:950;letter-spacing:-.01em}
+    .overview-list{display:grid;gap:18px}
+    .overview-row{display:grid;grid-template-columns:32px 1fr 44px;gap:12px;align-items:center}
+    .overview-icon{width:29px;height:29px;border-radius:50%;color:white;display:grid;place-items:center;box-shadow:0 9px 18px rgba(61,45,10,.12);font-size:16px;font-weight:950}
+    .overview-icon.blue{background:#6657ff}
+    .overview-icon.red{background:#f2643d}
+    .overview-icon.green{background:#18a96e}
+    .overview-label{display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:950;color:#6a4e3d}
+    .bar{height:5px;border-radius:999px;background:rgba(126,83,50,.12);overflow:hidden}
+    .bar span{display:block;height:100%;width:0;border-radius:inherit;transition:width .28s var(--ease)}
+    .bar.blue span{background:#6657ff}
+    .bar.red span{background:#f2643d}
+    .bar.green span{background:#18a96e}
+    .overview-percent{text-align:right;font-weight:950;color:#6a4e3d;font-size:14px}
+    .mentor-tip{min-height:190px;overflow:hidden}
+    .mentor-tip h2{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+    .mentor-tip h2::before{content:"✦";color:#ff9b17;font-size:22px}
+    .mentor-tip p{margin:0;max-width:230px;color:#7a5944;font-size:17px;line-height:1.42;font-weight:850}
+
+    .help-toggle{
+      position:fixed;
+      top:22px;
+      right:22px;
+      z-index:900;
+      width:48px;
+      height:48px;
+      border-radius:50%;
+      border:1.5px solid rgba(255,255,255,.82);
+      background:rgba(255,255,255,.88);
+      color:#ff8a1f;
+      font-size:25px;
+      font-weight:950;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      box-shadow:0 16px 34px rgba(79,49,10,.16);
+      backdrop-filter:blur(14px);
+    }
+    .help-toggle.is-visible{display:flex}
+
+    .pillar-dock{
+      position:fixed;
+      left:50%;
+      bottom:24px;
+      z-index:890;
+      transform:translateX(-50%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:20px;
+      pointer-events:auto;
+    }
+    .dock-btn{
+      --btn-size:72px;
+      position:relative;
+      height:var(--btn-size);
+      width:calc(var(--btn-size) * 1.15);
+      border-radius:50%;
+      border:none;
+      background-color:#ff9a3c;
+      box-shadow:0 8px 0 #e56a00,0 14px 28px rgba(122,72,18,.18);
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition:box-shadow .15s ease-out, transform .15s ease-out;
+      overflow:hidden;
+    }
+    .dock-btn:active{box-shadow:none;transform:translateY(8px)}
+    .dock-btn svg{width:38px;height:38px;fill:#fff;stroke:#fff;color:#fff;opacity:.98}
+    .dock-btn::before{
+      content:"";
+      position:absolute;
+      top:-120%;
+      left:-250%;
+      height:18px;
+      width:220%;
+      background:rgba(255,255,255,.18);
+      transform:rotate(-20deg);
+      pointer-events:none;
+      animation:shine 2.2s cubic-bezier(.17,.79,.96,.25) infinite;
+    }
+    @keyframes shine{0%{top:-120%;left:-250%}100%{top:130%;left:130%}}
+
+    .zoom-controls{
+      position:fixed;
+      right:22px;
+      bottom:22px;
+      z-index:200;
+      display:flex;
+      align-items:center;
+      gap:9px;
+      padding:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.72);
+      backdrop-filter:blur(16px);
+      border:1px solid rgba(255,255,255,.82);
+      box-shadow:0 18px 48px rgba(105,63,16,.18);
+      color:#704b33;
+      font-weight:900;
+      cursor:auto;
+    }
+    .zoom-controls button{
+      width:36px;
+      height:36px;
+      border:0;
+      border-radius:50%;
+      cursor:pointer;
+      color:white;
+      background:linear-gradient(135deg,#ff9f1c,#ff7300);
+      box-shadow:0 8px 18px rgba(255,119,0,.24);
+      font-size:19px;
+      font-weight:950;
+    }
+    .zoom-controls input{width:130px;accent-color:#ff8a00}
+    .zoom-value{min-width:48px;text-align:center;font-size:13px}
+
+    .success-toast{
+      position:fixed;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%) scale(.92);
+      z-index:1200;
+      background:rgba(255,255,255,.96);
+      border:1.5px solid rgba(255,255,255,.9);
+      border-radius:26px;
+      padding:22px 30px;
+      box-shadow:0 24px 70px rgba(105,63,16,.22);
+      color:#ff8a1f;
+      font-size:30px;
+      line-height:1;
+      letter-spacing:-.04em;
+      font-weight:1000;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease,transform .18s ease;
+    }
+    .success-toast.open{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    .confetti-piece{position:fixed;z-index:1190;width:9px;height:14px;border-radius:3px;pointer-events:none;animation:confettiFall 1050ms cubic-bezier(.16,.84,.32,1) forwards}
+    @keyframes confettiFall{0%{transform:translate(0,0) rotate(0deg);opacity:1}100%{transform:translate(var(--dx),var(--dy)) rotate(720deg);opacity:0}}
+
+    @media (max-width:980px){
+      .side-summary{display:none}
+      .help-toggle{display:none!important}
+      .zoom-controls{right:12px;bottom:104px}
+    }
+
+    @media (max-width:760px){
+      .home-link{top:12px;left:12px;padding:10px 13px;font-size:13px}
+      .pillar-dock{gap:12px;bottom:18px}
+      .dock-btn{--btn-size:60px}
+      .zoom-controls input{width:92px}
+    }
+  </style>
+</head>
+<body>
+  <a class="home-link" href="index.html">← ScioPort</a>
+  <button class="help-toggle" id="helpToggle" type="button" aria-label="Otevřít legendu pokroku">?</button>
+
+  <div class="level-hover-tip" id="levelHoverTip"></div>
+  <div class="success-toast" id="successToast">Dobrá práce!</div>
+
+  <div class="evidence-bubble" id="evidenceBubble" aria-live="polite">
+    <button class="evidence-close" id="evidenceClose" type="button" aria-label="Zavřít">×</button>
+    <h3 id="evidenceTitle">Dolož svůj level</h3>
+    <p id="evidenceText">Vyber příspěvek nebo úkol z portfolia, který dokazuje, že tuhle úroveň zvládáš.</p>
+    <div class="evidence-list">
+      <label class="evidence-item" data-evidence-id="expedice" data-title="Reflexe z poslední expedice" data-detail="Reflexe, ve které žák popsal, co se naučil, co se mu dařilo a kde potřeboval podporu.">
+        <input type="checkbox">
+        <span>Reflexe z poslední expedice</span>
+      </label>
+      <label class="evidence-item" data-evidence-id="samorost" data-title="Hotový samorost / měsíční projekt" data-detail="Samostatně dokončený projekt s výstupem, postupem práce a závěrečnou reflexí.">
+        <input type="checkbox">
+        <span>Hotový samorost / měsíční projekt</span>
+      </label>
+      <label class="evidence-item" data-evidence-id="portfolio" data-title="Příspěvek v portfoliu s důkazem práce" data-detail="Příspěvek v portfoliu doplněný fotografií, textem nebo jiným konkrétním důkazem činnosti.">
+        <input type="checkbox">
+        <span>Příspěvek v portfoliu s důkazem práce</span>
+      </label>
+      <label class="evidence-item" data-evidence-id="ukol" data-title="Úkol označený průvodcem jako splněný" data-detail="Úkol, který byl dokončený a průvodce ho označil jako splněný nebo dobře zvládnutý.">
+        <input type="checkbox">
+        <span>Úkol označený průvodcem jako splněný</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="evidence-detail-bubble" id="evidenceDetailBubble" aria-live="polite">
+    <h4 id="evidenceDetailTitle">Detail příspěvku</h4>
+    <p class="evidence-detail-meta" id="evidenceDetailMeta">Tady uvidíš detail vybraného úkolu nebo příspěvku.</p>
+    <div class="evidence-detail-card" id="evidenceDetailCard">Vyber některý důkaz vlevo.</div>
+    <label class="evidence-detail-label" id="evidencePromptLabel" for="evidencePromptInput">Čím přesně jsi tímto úkolem prokázal daný level?</label>
+    <textarea id="evidencePromptInput" class="evidence-detail-input" rows="4" placeholder="Napiš konkrétně, co přesně v tomhle důkazu ukazuje, že tenhle level zvládáš..."></textarea>
+    <button class="evidence-save evidence-detail-save" id="evidenceSave" type="button">Uložit jako důkaz</button>
+  </div>
+
+  <div class="pillar-dock" aria-label="Rychlá volba pilířů">
+    <button class="dock-btn" data-core-target="zvidavost" aria-label="Zvídavost">
+      <svg viewBox="0 0 36 36" aria-hidden="true"><path d="M29 11.06c0 6.439-5 7.439-5 13.44c0 3.098-3.123 3.359-5.5 3.359c-2.053 0-6.586-.779-6.586-3.361C11.914 18.5 7 17.5 7 11.06C7 5.029 12.285.14 18.083.14C23.883.14 29 5.029 29 11.06z"></path><path d="M22.167 32.5c0 .828-2.234 2.5-4.167 2.5c-1.933 0-4.167-1.672-4.167-2.5c0-.828 2.233-.5 4.167-.5c1.933 0 4.167-.328 4.167.5z"></path></svg>
+    </button>
+    <button class="dock-btn" data-core-target="hodnoty" aria-label="Hodnoty">
+      <svg viewBox="0 0 36 36" aria-hidden="true"><path d="M35.885 11.833c0-5.45-4.418-9.868-9.867-9.868c-3.308 0-6.227 1.633-8.018 4.129c-1.791-2.496-4.71-4.129-8.017-4.129c-5.45 0-9.868 4.417-9.868 9.868c0 .772.098 1.52.266 2.241C1.751 22.587 11.216 31.568 18 34.034c6.783-2.466 16.249-11.447 17.617-19.959c.17-.721.268-1.469.268-2.242z"></path></svg>
+    </button>
+    <button class="dock-btn" data-core-target="samostatnost" aria-label="Samostatnost">
+      <svg viewBox="0 0 36 36" aria-hidden="true"><path d="M18 2.5c8.56 0 15.5 6.94 15.5 15.5S26.56 33.5 18 33.5 2.5 26.56 2.5 18 9.44 2.5 18 2.5zm6.2 8.3-8.1 3.4-3.4 8.1 8.1-3.4 3.4-8.1z"></path></svg>
+    </button>
+  </div>
+
+  <div class="node-bubble" id="nodeBubble" aria-live="polite">
+    <h3 id="nodeBubbleTitle">Název</h3>
+    <div class="kind" id="nodeBubbleKind">podpilíř</div>
+    <p id="nodeBubbleText">Popis.</p>
+  </div>
+
+  <div class="skill-tree-app" id="viewport">
+    <div class="world" id="world">
+      <section class="canvas" id="canvas">
+        <div class="mini-planet"></div>
+        <div class="orbit"></div>
+        <div class="center-spark"></div>
+        <svg class="lines" id="lines" viewBox="0 0 1400 760" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="blueGrad"><stop offset="0" stop-color="#8a7dff"></stop><stop offset="1" stop-color="#5645e8"></stop></linearGradient>
+            <linearGradient id="redGrad"><stop offset="0" stop-color="#ff946a"></stop><stop offset="1" stop-color="#ed5734"></stop></linearGradient>
+            <linearGradient id="greenGrad"><stop offset="0" stop-color="#64dda2"></stop><stop offset="1" stop-color="#12a66d"></stop></linearGradient>
+          </defs>
+        </svg>
+
+        <aside class="side-summary" aria-label="Souhrn pokroku">
+          <section class="summary-card">
+            <button class="summary-close" id="summaryClose" type="button" aria-label="Zavřít legendu pokroku">×</button>
+            <div class="summary-head">
+              <h2>Legenda pokroku</h2>
+              <div class="info-dot">i</div>
+            </div>
+            <div class="legend-list">
+              <div class="legend-row"><span class="legend-num l1">1</span><span><strong>Začínám</strong><span class="legend-text">Objevuji první krůčky.</span></span></div>
+              <div class="legend-row"><span class="legend-num l2">2</span><span><strong>Zkouším</strong><span class="legend-text">Zkouším různé přístupy.</span></span></div>
+              <div class="legend-row"><span class="legend-num l3">3</span><span><strong>Zvládám</strong><span class="legend-text">Zvládám samostatně.</span></span></div>
+              <div class="legend-row"><span class="legend-num l4">4</span><span><strong>Předávám</strong><span class="legend-text">Sdílím a inspiruji ostatní.</span></span></div>
+            </div>
+            <div class="summary-divider"></div>
+            <h3 class="overview-title">Celkový přehled</h3>
+            <div class="overview-list">
+              <div class="overview-row" data-overview="zvidavost"><div class="overview-icon blue">⌕</div><div class="overview-label">Zvídavost<div class="bar blue"><span></span></div></div><div class="overview-percent">0 %</div></div>
+              <div class="overview-row" data-overview="hodnoty"><div class="overview-icon red">♥</div><div class="overview-label">Hodnoty<div class="bar red"><span></span></div></div><div class="overview-percent">0 %</div></div>
+              <div class="overview-row" data-overview="samostatnost"><div class="overview-icon green">◉</div><div class="overview-label">Samostatnost<div class="bar green"><span></span></div></div><div class="overview-percent">0 %</div></div>
+            </div>
+          </section>
+          <section class="summary-card mentor-tip" id="selectedInfo">
+            <h2 id="selectedInfoTitle">Tip mentora</h2>
+            <p id="selectedInfoText">Klikni na libovolný button a jeho popis se ukáže v bublině přímo u něj.</p>
+          </section>
+        </aside>
+      </section>
+    </div>
+
+    <div class="zoom-controls" aria-label="Ovládání přiblížení">
+      <button id="zoomOut" type="button">−</button>
+      <input id="zoomRange" type="range" min="40" max="110" value="72">
+      <button id="zoomIn" type="button">+</button>
+      <span class="zoom-value" id="zoomValue">72 %</span>
+    </div>
+  </div>
+
+  <script>
+    const viewport=document.getElementById("viewport");
+    const world=document.getElementById("world");
+    const canvas=document.getElementById("canvas");
+    const svg=document.getElementById("lines");
+    const zoomRange=document.getElementById("zoomRange");
+    const zoomValue=document.getElementById("zoomValue");
+    const zoomIn=document.getElementById("zoomIn");
+    const zoomOut=document.getElementById("zoomOut");
+    const sideSummary=document.querySelector(".side-summary");
+    const summaryClose=document.getElementById("summaryClose");
+    const helpToggle=document.getElementById("helpToggle");
+    const nodeBubble=document.getElementById("nodeBubble");
+    const nodeBubbleTitle=document.getElementById("nodeBubbleTitle");
+    const nodeBubbleKind=document.getElementById("nodeBubbleKind");
+    const nodeBubbleText=document.getElementById("nodeBubbleText");
+    const levelHoverTip=document.getElementById("levelHoverTip");
+    const evidenceBubble=document.getElementById("evidenceBubble");
+    const evidenceTitle=document.getElementById("evidenceTitle");
+    const evidenceText=document.getElementById("evidenceText");
+    const evidenceClose=document.getElementById("evidenceClose");
+    const evidenceSave=document.getElementById("evidenceSave");
+    const evidenceDetailBubble=document.getElementById("evidenceDetailBubble");
+    const evidenceDetailTitle=document.getElementById("evidenceDetailTitle");
+    const evidenceDetailMeta=document.getElementById("evidenceDetailMeta");
+    const evidenceDetailCard=document.getElementById("evidenceDetailCard");
+    const evidencePromptLabel=document.getElementById("evidencePromptLabel");
+    const evidencePromptInput=document.getElementById("evidencePromptInput");
+    const evidenceItems=[...document.querySelectorAll(".evidence-item")];
+    const successToast=document.getElementById("successToast");
+    const selectedInfoTitle=document.getElementById("selectedInfoTitle");
+    const selectedInfoText=document.getElementById("selectedInfoText");
+
+    let activeBubbleNode=null;
+    let activeEvidenceNode=null;
+    let activeEvidenceItem=null;
+    let didPan=false;
+
+    const evidenceNotesById={};
+    const confirmedEvidenceByLevel={};
+    const chosenLevels={};
+    const subToParent={};
+    const coreEls={};
+    const levelFloatItems=[];
+
+    const icons={
+      "Zvídavost":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="10" cy="10" r="6"/><path d="m14.5 14.5 5 5"/></svg>',
+      "Hodnoty":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 1 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z"/></svg>',
+      "Samostatnost":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.1 5-5 2.1 2.1-5Z"/></svg>',
+      "Ptám se a ověřuji":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 15H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h7a3 3 0 0 1 3 3v1"/><path d="M9 20h7l5 2v-5a3 3 0 0 0-3-3h-7a3 3 0 0 0-3 3v1a2 2 0 0 0 2 2Z"/><path d="M8.7 8.5a2.1 2.1 0 1 1 3.8 1.2c-.5.8-1.4 1-1.4 2"/><path d="M11.1 14h.01"/></svg>',
+      "Jsem aktivní":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 21v-8"/><path d="M6 21v-6"/><path d="M18 21v-6"/><path d="M6 15 3 12"/><path d="M18 15l3-3"/><path d="M8 8a4 4 0 0 1 8 0"/><path d="M9 5l-2-2"/><path d="M15 5l2-2"/><path d="M12 4V1"/><circle cx="19" cy="7" r="2"/></svg>',
+      "Učím se z chyb a zpětné vazby":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19h16"/><path d="M6 17v-5h4v5"/><path d="M11 17V8h4v9"/><path d="M16 17V4h4v13"/><path d="m18 3 1 1 2-2"/><path d="M4 17c1-5 4-8 8-9"/></svg>',
+      "Přemýšlím, co jsem se naučil a co chci dělat dál":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12a8 8 0 0 1 13-6"/><path d="M20 12a8 8 0 0 1-13 6"/><path d="M17 2v4h-4"/><path d="M7 22v-4h4"/></svg>',
+      "Naslouchám, všímám si druhých":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path d="M19 18c1.5-1 2.4-2.4 2.8-4"/><path d="M5 18c-1.5-1-2.4-2.4-2.8-4"/></svg>',
+      "Jsem fér, respektuji":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 11 4 14a3 3 0 0 0 4 4l2-2"/><path d="m17 11 3 3a3 3 0 0 1-4 4l-2-2"/><path d="M8 12l4-4 4 4"/><path d="M12 4l2 2 2-2"/></svg>',
+      "Spolupracuji a pomáhám":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 8h4v4H5z"/><path d="M15 8h4v4h-4z"/><path d="M10 14h4v4h-4z"/><path d="M9 10h6"/><path d="M12 14v-2"/><path d="M4 20c4-2 12-2 16 0"/></svg>',
+      "Mám odvahu":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3 4 21h16Z"/><path d="M12 8v6"/><path d="M9 13h6"/><path d="M8 21c1.2-3 6.8-3 8 0"/></svg>',
+      "Pečuji o sebe, wellbeing":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M6 21a6 6 0 0 1 12 0"/><path d="M4 12c2 2 4 3 8 3s6-1 8-3"/><path d="M3 6l2 2"/></svg>',
+      "Plánuji a řídím čas":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/><circle cx="8" cy="6" r="1.5"/><circle cx="14" cy="12" r="1.5"/><circle cx="19" cy="18" r="1.5"/><path d="M8 6h6M14 12h5"/></svg>',
+      "Nesu zodpovědnost a dotahuji":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5h8v8H4z"/><path d="M12 11h8v8h-8z"/><path d="m7 17 2 2 4-5"/><path d="M14 5h2a4 4 0 0 1 4 4v2"/></svg>',
+      "Funguji samostatně":'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 21V10"/><path d="M18 21V10"/><path d="M12 21V4"/><path d="M12 4 8 8"/><path d="m12 4 4 4"/><path d="M4 14h4"/><path d="M16 14h4"/></svg>'
+    };
+
+    const cores=[
+      {id:"zvidavost",label:"Zvídavost",kind:"hlavní pilíř",color:"blue",x:50,y:32,icon:"Zvídavost",text:"Schopnost ptát se, ověřovat, aktivně se zapojovat, učit se ze zpětné vazby a přemýšlet o dalším směru."},
+      {id:"hodnoty",label:"Hodnoty",kind:"hlavní pilíř",color:"red",x:37,y:63,icon:"Hodnoty",text:"Schopnost naslouchat, respektovat, spolupracovat, pomáhat a mít odvahu jednat správně."},
+      {id:"samostatnost",label:"Samostatnost",kind:"hlavní pilíř",color:"green",x:63,y:63,icon:"Samostatnost",text:"Schopnost pečovat o sebe, plánovat, nést odpovědnost, dotahovat věci a fungovat samostatně."}
+    ];
+
+    const subDescriptions={
+      "Ptám se a ověřuji":"Zkoumám, pátrám do hloubky, zjišťuji souvislosti, hledám v různých zdrojích a nacházím příklady z reálného života.",
+      "Jsem aktivní":"Aktivně se zapojuji, přináším nápady, diskutuji v hodinách a beru svou aktivitu jako cestu k vlastnímu rozvoji.",
+      "Učím se z chyb a zpětné vazby":"Říkám si o zpětnou vazbu a využívám ji k růstu. Nebojím se chyby, beru ji jako příležitost k dalšímu rozvoji a aktivně s ní pracuji.",
+      "Přemýšlím, co jsem se naučil a co chci dělat dál":"Reflektuji a vyhodnocuji, co mi učení dalo, co jsem mohl udělat jinak, co udělám příště a kam se chci dál zaměřit.",
+      "Naslouchám, všímám si druhých":"Koukám kolem sebe, naslouchám a věnuji pozornost tomu, kdo ji potřebuje. Nejsem lhostejný/á k lidem okolo sebe.",
+      "Jsem fér, respektuji":"Respektuji pravidla, svoje potřeby, lidi kolem sebe, majetek i věci. Chovám se férově, nepodvádím a pracuji do hloubky.",
+      "Spolupracuji a pomáhám":"Vysvětlím, pomůžu, nabídnu pomoc, podílím se na společných věcech a zapojuji se do práce pro celou skupinu.",
+      "Mám odvahu":"Řeknu názor, zastanu se slabšího, vyjádřím i nepopulární pohled a umím stát za svým, když to dává smysl.",
+      "Pečuji o sebe, wellbeing":"Všímám si, jak se cítím, zjišťuji, co mi dělá dobře, umím si říct o pomoc a posiluji svou odolnost.",
+      "Plánuji a řídím čas":"Pracuji s časem, rozvrhnu si úkoly, stanovuji si přiměřené cíle, mám systém a vím, jak plánovat se záměrem.",
+      "Nesu zodpovědnost a dotahuji":"Když si něco zvolím, vytrvám do konce a dokončím práci kvalitně a přiměřeně svým schopnostem.",
+      "Funguji samostatně":"Dělám úkoly včas, hlídám si své povinnosti, vím, na čem mám pracovat a co potřebuji, a postarám se o sebe i své věci."
+    };
+
+    const subpillars=[
+      {parent:"zvidavost",label:"Ptám se a ověřuji",color:"blue",x:26,y:20,icon:"Ptám se a ověřuji",fan:"outerUpLeft"},
+      {parent:"zvidavost",label:"Jsem aktivní",color:"blue",x:50,y:8,icon:"Jsem aktivní",fan:"topCenter"},
+      {parent:"zvidavost",label:"Učím se z chyb a zpětné vazby",color:"blue",x:70,y:18,icon:"Učím se z chyb a zpětné vazby",fan:"outerUpRight"},
+      {parent:"zvidavost",label:"Přemýšlím, co jsem se naučil a co chci dělat dál",color:"blue",x:82,y:28,icon:"Přemýšlím, co jsem se naučil a co chci dělat dál",fan:"rightSmall"},
+      {parent:"hodnoty",label:"Naslouchám, všímám si druhých",color:"red",x:14,y:40,icon:"Naslouchám, všímám si druhých",fan:"outerLeftUp"},
+      {parent:"hodnoty",label:"Jsem fér, respektuji",color:"red",x:14,y:72,icon:"Jsem fér, respektuji",fan:"outerLeftDown"},
+      {parent:"hodnoty",label:"Spolupracuji a pomáhám",color:"red",x:27,y:86,icon:"Spolupracuji a pomáhám",fan:"outerDownLeft"},
+      {parent:"hodnoty",label:"Mám odvahu",color:"red",x:42,y:96,icon:"Mám odvahu",fan:"bottomLeft"},
+      {parent:"samostatnost",label:"Pečuji o sebe, wellbeing",color:"green",x:58,y:96,icon:"Pečuji o sebe, wellbeing",fan:"bottomRight"},
+      {parent:"samostatnost",label:"Plánuji a řídím čas",color:"green",x:73,y:86,icon:"Plánuji a řídím čas",fan:"outerDownRight"},
+      {parent:"samostatnost",label:"Nesu zodpovědnost a dotahuji",color:"green",x:86,y:74,icon:"Nesu zodpovědnost a dotahuji",fan:"outerRightDown"},
+      {parent:"samostatnost",label:"Funguji samostatně",color:"green",x:86,y:40,icon:"Funguji samostatně",fan:"outerRightUp"}
+    ];
+
+    const levelLabels=["Začínám","Zkouším","Zvládám","Předávám"];
+
+    function escapeHtml(text){
+      const div=document.createElement("div");
+      div.textContent=String(text || "");
+      return div.innerHTML;
+    }
+
+    function slugify(text){
+      return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+    }
+
+    function mapX(x){return 50+(x-50)*.90}
+    function mapY(y){return 50+(y-50)*.80}
+    function mapPoint(pt){return {x:mapX(pt.x),y:mapY(pt.y)}}
+
+    function describeCurve(from,to,endDx=0,endDy=0){
+      const mf=mapPoint(from);
+      const mt=mapPoint(to);
+      const x1=mf.x*14;
+      const y1=mf.y*7.6;
+      const x2=mt.x*14+endDx;
+      const y2=mt.y*7.6+endDy;
+      const dx=x2-x1;
+      const dy=y2-y1;
+      return `M ${x1} ${y1} C ${x1+dx*.42} ${y1+dy*.05}, ${x1+dx*.66+endDx*.16} ${y1+dy*.95+endDy*.16}, ${x2} ${y2}`;
+    }
+
+    function pathLine(from,to,color,soft=false){
+      const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+      p.setAttribute("d",describeCurve(from,to));
+      p.setAttribute("class",soft ? "core-line" : `line ${color}`);
+      svg.appendChild(p);
+      return p;
+    }
+
+    function levelPositions(sub){
+      const p=[];
+      const push=(x,y,i)=>p.push({x,y,num:i+1,label:levelLabels[i]});
+      const many=arr=>arr.forEach(([dx,dy],i)=>push(sub.x+dx,sub.y+dy,i));
+      if(sub.fan==="outerUpLeft") many([[-34,-12],[-36,-27],[-27,-40],[-12,-47]]);
+      else if(sub.fan==="topCenter") many([[-18,-30],[-6,-42],[6,-42],[18,-30]]);
+      else if(sub.fan==="outerUpRight") many([[12,-47],[27,-40],[36,-27],[34,-12]]);
+      else if(sub.fan==="rightSmall") many([[16,-14],[22,-4],[22,7],[16,17]]);
+      else if(sub.fan==="outerLeftUp") many([[-32,-30],[-43,-18],[-47,-5],[-38,8]]);
+      else if(sub.fan==="outerLeftDown") many([[-38,-8],[-47,5],[-43,18],[-32,30]]);
+      else if(sub.fan==="outerDownLeft") many([[-34,12],[-36,27],[-27,40],[-12,47]]);
+      else if(sub.fan==="bottomLeft") many([[-34,10],[-31,25],[-20,38],[-7,44]]);
+      else if(sub.fan==="bottomRight") many([[7,44],[20,38],[31,25],[34,10]]);
+      else if(sub.fan==="outerDownRight") many([[12,47],[27,40],[36,27],[34,12]]);
+      else if(sub.fan==="outerRightDown") many([[38,-8],[47,5],[43,18],[32,30]]);
+      else if(sub.fan==="outerRightUp") many([[32,-30],[43,-18],[47,-5],[38,8]]);
+      return p;
+    }
+
+    function coreOrbitHtml(){
+      return `
+        <div class="completion-orbit" aria-hidden="true">
+          <svg viewBox="0 0 128 128">
+            <g fill="none" stroke-linecap="round" stroke-width="4">
+              <g class="atom-ring r1"><ellipse class="atom-orbit-soft" cx="64" cy="64" rx="60" ry="30"></ellipse><ellipse class="atom-orbit-mid" cx="64" cy="64" rx="60" ry="30"></ellipse><ellipse class="atom-orbit-hot" cx="64" cy="64" rx="60" ry="30"></ellipse></g>
+              <g class="atom-ring r2"><ellipse class="atom-orbit-soft" cx="64" cy="64" rx="60" ry="30"></ellipse><ellipse class="atom-orbit-mid" cx="64" cy="64" rx="60" ry="30"></ellipse><ellipse class="atom-orbit-hot" cx="64" cy="64" rx="60" ry="30"></ellipse></g>
+              <g class="atom-ring r3"><ellipse class="atom-orbit-soft" cx="64" cy="64" rx="60" ry="30"></ellipse><ellipse class="atom-orbit-mid" cx="64" cy="64" rx="60" ry="30"></ellipse><ellipse class="atom-orbit-hot" cx="64" cy="64" rx="60" ry="30"></ellipse></g>
+              <g class="atom-ring r4"><ellipse class="atom-electron" cx="64" cy="64" rx="60" ry="30"></ellipse><ellipse class="atom-electron" cx="64" cy="64" rx="60" ry="30"></ellipse></g>
+            </g>
+          </svg>
+        </div>
+        <div class="pillar-orbit" aria-hidden="true"></div>
+      `;
+    }
+
+    function makeNode(cls,node){
+      const el=document.createElement("div");
+      el.className=`tree-node ${cls} ${node.color}`;
+      el.dataset.label=node.label;
+      el.dataset.kind=node.kind || (cls.includes("level") ? "úroveň zvládnutí" : "podpilíř");
+      el.dataset.text=node.text || `Uzel „${node.label}“ ukazuje aktuální stav pokroku.`;
+      if(node.subId) el.dataset.subId=node.subId;
+      if(node.parentCore) el.dataset.parentCore=node.parentCore;
+      if(node.levelNum!==undefined) el.dataset.levelNum=node.levelNum;
+      if(node.id) el.dataset.coreId=node.id;
+      el.style.left=mapX(node.x)+"%";
+      el.style.top=mapY(node.y)+"%";
+
+      if(cls.includes("core")){
+        el.innerHTML=coreOrbitHtml()+icons[node.icon]+`<span>${escapeHtml(node.label)}</span>`;
+        coreEls[node.id]=el;
+      }else if(cls.includes("sub")){
+        el.innerHTML=icons[node.icon]+`<span>${escapeHtml(node.label)}</span>`;
+      }else{
+        el.innerHTML=`<span class="num">${node.num}</span><span class="txt">${escapeHtml(node.label)}</span>`;
+      }
+
+      el.addEventListener("pointerdown",e=>e.stopPropagation());
+      el.addEventListener("click",e=>{
+        e.stopPropagation();
+        handleNodeClick(el);
+      });
+      if(cls.includes("level")){
+        el.addEventListener("mouseenter",()=>showLevelHover(el));
+        el.addEventListener("mousemove",()=>positionFixedPanel(levelHoverTip,el,14));
+        el.addEventListener("mouseleave",hideLevelHover);
+      }
+      canvas.appendChild(el);
+      return el;
+    }
+
+    function getPosById(id){
+      const core=cores.find(n=>n.id===id);
+      return core ? {x:core.x,y:core.y} : null;
+    }
+
+    function buildTree(){
+      pathLine(cores[0],cores[1],"blue",true);
+      pathLine(cores[0],cores[2],"green",true);
+      pathLine(cores[1],cores[2],"red",true);
+      cores.forEach(core=>makeNode("core",core));
+
+      subpillars.forEach(sub=>{
+        const core=getPosById(sub.parent);
+        pathLine(core,sub,sub.color);
+        const subId=`${sub.parent}-${slugify(sub.label)}`;
+        subToParent[subId]=sub.parent;
+        makeNode("sub",{...sub,subId,parentCore:sub.parent,kind:"podpilíř",text:subDescriptions[sub.label]});
+        levelPositions(sub).forEach(level=>{
+          const levelLine=pathLine(sub,level,sub.color);
+          const levelEl=makeNode("level",{
+            x:level.x,
+            y:level.y,
+            color:sub.color,
+            num:level.num,
+            label:level.label,
+            levelNum:level.num,
+            subId,
+            parentCore:sub.parent,
+            kind:`${sub.label} · ${level.label}`,
+            text:`${level.label}: tady se může zobrazit popis kritéria, příklady důkazů a návrh dalšího kroku pro žáka.`
+          });
+          levelFloatItems.push({
+            el:levelEl,
+            line:levelLine,
+            from:sub,
+            to:level,
+            ampX:1.4+Math.random()*2.8,
+            ampY:2.2+Math.random()*3.4,
+            phase1:Math.random()*Math.PI*2,
+            phase2:Math.random()*Math.PI*2,
+            speed1:.0014+Math.random()*.0011,
+            speed2:.0009+Math.random()*.001
+          });
+        });
+      });
+      renderProgressState();
+    }
+
+    function clampViewport(){
+      const z=Number(getComputedStyle(world).getPropertyValue("--zoom")) || .72;
+      const maxLeft=Math.max(0,world.offsetWidth*z-viewport.clientWidth);
+      const maxTop=Math.max(0,world.offsetHeight*z-viewport.clientHeight);
+      viewport.scrollLeft=Math.max(0,Math.min(viewport.scrollLeft,maxLeft));
+      viewport.scrollTop=Math.max(0,Math.min(viewport.scrollTop,maxTop));
+    }
+
+    function animateViewportTo(left,top,duration=820){
+      const startLeft=viewport.scrollLeft;
+      const startTop=viewport.scrollTop;
+      const dx=left-startLeft;
+      const dy=top-startTop;
+      const start=performance.now();
+      const ease=t=>1-Math.pow(1-t,3);
+      function frame(now){
+        const t=Math.min(1,(now-start)/duration);
+        const e=ease(t);
+        viewport.scrollLeft=startLeft+dx*e;
+        viewport.scrollTop=startTop+dy*e;
+        clampViewport();
+        updateFloatingSummary();
+        updateNodeBubblePosition();
+        if(t<1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function updateFloatingSummary(){
+      if(!sideSummary || sideSummary.classList.contains("is-closed")) return;
+      const zoom=Number(getComputedStyle(world).getPropertyValue("--zoom")) || .72;
+      if(zoom<=.58){
+        sideSummary.classList.remove("is-floating");
+        sideSummary.style.transform="";
+        return;
+      }
+      const desiredScreenX=viewport.clientWidth-360;
+      const desiredScreenY=28;
+      const worldX=viewport.scrollLeft+desiredScreenX/zoom;
+      const worldY=viewport.scrollTop+desiredScreenY/zoom;
+      const localX=worldX-canvas.offsetLeft;
+      const localY=worldY-canvas.offsetTop;
+      sideSummary.classList.add("is-floating");
+      sideSummary.style.transform=`translate(${localX-1500}px, ${localY-30}px) scale(${1/zoom})`;
+    }
+
+    function setZoom(value,keepCenter=true,duration=820){
+      const oldZoom=Number(getComputedStyle(world).getPropertyValue("--zoom")) || .72;
+      const nextZoom=Math.max(.4,Math.min(1.1,value));
+      const centerX=viewport.scrollLeft+viewport.clientWidth/2;
+      const centerY=viewport.scrollTop+viewport.clientHeight/2;
+      const worldX=centerX/oldZoom;
+      const worldY=centerY/oldZoom;
+      world.style.setProperty("--zoom",nextZoom);
+      zoomRange.value=Math.round(nextZoom*100);
+      zoomValue.textContent=`${Math.round(nextZoom*100)} %`;
+      updateFloatingSummary();
+      if(keepCenter){
+        animateViewportTo(worldX*nextZoom-viewport.clientWidth/2,worldY*nextZoom-viewport.clientHeight/2,duration);
+      }
+    }
+
+    function setZoomAtPoint(value,clientX,clientY){
+      const oldZoom=Number(getComputedStyle(world).getPropertyValue("--zoom")) || .72;
+      const nextZoom=Math.max(.4,Math.min(1.1,value));
+      const rect=viewport.getBoundingClientRect();
+      const pointX=clientX-rect.left;
+      const pointY=clientY-rect.top;
+      const worldX=viewport.scrollLeft+pointX/oldZoom;
+      const worldY=viewport.scrollTop+pointY/oldZoom;
+      world.style.transition="transform .24s cubic-bezier(.22,.9,.22,1)";
+      world.style.setProperty("--zoom",nextZoom);
+      zoomRange.value=Math.round(nextZoom*100);
+      zoomValue.textContent=`${Math.round(nextZoom*100)} %`;
+      viewport.scrollLeft=worldX-pointX/nextZoom;
+      viewport.scrollTop=worldY-pointY/nextZoom;
+      clampViewport();
+      updateFloatingSummary();
+      updateNodeBubblePosition();
+      clearTimeout(world._zoomTransitionTimer);
+      world._zoomTransitionTimer=setTimeout(()=>{world.style.transition=""},260);
+    }
+
+    function centerTree(){
+      const z=Number(zoomRange.value)/100;
+      const skillCenterX=canvas.offsetLeft+canvas.offsetWidth*.5;
+      const skillCenterY=canvas.offsetTop+canvas.offsetHeight*.521;
+      viewport.scrollLeft=skillCenterX*z-viewport.clientWidth/2;
+      viewport.scrollTop=skillCenterY*z-viewport.clientHeight/2;
+      clampViewport();
+      updateFloatingSummary();
+    }
+
+    function positionFixedPanel(panel,el,offset=18){
+      if(!panel || !el) return;
+      const rect=el.getBoundingClientRect();
+      const panelRect=panel.getBoundingClientRect();
+      let left=rect.left+rect.width/2-panelRect.width/2;
+      left=Math.max(12,Math.min(left,window.innerWidth-panelRect.width-12));
+      let top=rect.top-panelRect.height-offset;
+      let below=false;
+      if(top<12){
+        top=rect.bottom+offset;
+        below=true;
+      }
+      panel.style.left=`${left}px`;
+      panel.style.top=`${top}px`;
+      panel.classList.toggle("below",below);
+    }
+
+    function updateNodeBubblePosition(){
+      if(!activeBubbleNode || !nodeBubble.classList.contains("open")) return;
+      positionFixedPanel(nodeBubble,activeBubbleNode,18);
+    }
+
+    function showNodeBubble(el){
+      if(el.classList.contains("level")) return;
+      hideEvidenceBubble();
+      hideLevelHover();
+      activeBubbleNode=el;
+      nodeBubbleTitle.textContent=el.dataset.label || "";
+      nodeBubbleKind.textContent=el.dataset.kind || "";
+      nodeBubbleText.textContent=el.dataset.text || "";
+      nodeBubble.classList.add("open");
+      updateNodeBubblePosition();
+      selectedInfoTitle.textContent=el.dataset.label || "Tip mentora";
+      selectedInfoText.textContent=el.dataset.text || "";
+    }
+
+    function hideNodeBubble(){
+      activeBubbleNode=null;
+      nodeBubble.classList.remove("open");
+    }
+
+    function levelEvidenceKey(subId,levelNum){
+      return `${subId}::${levelNum}`;
+    }
+
+    function currentSubpillarAndLevel(){
+      if(!activeEvidenceNode) return {subpillar:"vybraném podpilíři",levelNum:"",levelLabel:"vybraný level"};
+      const parts=(activeEvidenceNode.dataset.kind || "").split("·").map(s=>s.trim()).filter(Boolean);
+      return {
+        subpillar:parts[0] || "vybraném podpilíři",
+        levelNum:activeEvidenceNode.dataset.levelNum || "",
+        levelLabel:activeEvidenceNode.dataset.label || parts[1] || "vybraný level"
+      };
+    }
+
+    function buildEvidencePrompt(){
+      const ctx=currentSubpillarAndLevel();
+      return `Čím přesně jsi tímto úkolem prokázal, že v podpilíři „${ctx.subpillar}“ naplňuješ level ${ctx.levelNum} - ${ctx.levelLabel}?`;
+    }
+
+    function positionEvidenceDetailBubble(){
+      if(!evidenceDetailBubble.classList.contains("open") || !evidenceBubble.classList.contains("open")) return;
+      const bubbleRect=evidenceBubble.getBoundingClientRect();
+      const detailRect=evidenceDetailBubble.getBoundingClientRect();
+      let left=bubbleRect.right+14;
+      let top=bubbleRect.top;
+      if(left+detailRect.width>window.innerWidth-12) left=bubbleRect.left-detailRect.width-14;
+      if(left<12){
+        left=Math.max(12,Math.min(bubbleRect.left,window.innerWidth-detailRect.width-12));
+        top=bubbleRect.bottom+12;
+      }
+      if(top+detailRect.height>window.innerHeight-12) top=Math.max(12,window.innerHeight-detailRect.height-12);
+      evidenceDetailBubble.style.left=`${left}px`;
+      evidenceDetailBubble.style.top=`${top}px`;
+    }
+
+    function showEvidenceDetailBubble(item){
+      activeEvidenceItem=item;
+      evidenceItems.forEach(el=>el.classList.toggle("is-active",el===item));
+      const title=item.dataset.title || "Vybraný důkaz";
+      const detail=item.dataset.detail || "";
+      const id=item.dataset.evidenceId || title;
+      evidenceDetailTitle.textContent=title;
+      evidenceDetailMeta.textContent="DETAIL PŘÍSPĚVKU / ÚKOLU";
+      evidenceDetailCard.textContent=detail;
+      evidencePromptLabel.textContent=buildEvidencePrompt();
+      evidencePromptInput.value=evidenceNotesById[id] || "";
+      evidenceDetailBubble.classList.add("open");
+      positionEvidenceDetailBubble();
+      setTimeout(()=>evidencePromptInput.focus(),30);
+    }
+
+    function hideEvidenceDetailBubble(){
+      if(activeEvidenceItem){
+        const id=activeEvidenceItem.dataset.evidenceId || activeEvidenceItem.dataset.title || "";
+        evidenceNotesById[id]=evidencePromptInput.value;
+      }
+      activeEvidenceItem=null;
+      evidenceItems.forEach(el=>el.classList.remove("is-active"));
+      evidenceDetailBubble.classList.remove("open");
+    }
+
+    function syncEvidenceSelection(changedItem=null){
+      const checkedItems=evidenceItems.filter(item=>item.querySelector("input")?.checked);
+      if(changedItem && changedItem.querySelector("input")?.checked){
+        showEvidenceDetailBubble(changedItem);
+        return;
+      }
+      if(checkedItems.length){
+        showEvidenceDetailBubble(activeEvidenceItem && checkedItems.includes(activeEvidenceItem) ? activeEvidenceItem : checkedItems[0]);
+      }else{
+        hideEvidenceDetailBubble();
+      }
+    }
+
+    function showEvidenceBubble(el){
+      activeEvidenceNode=el;
+      document.querySelectorAll(".level.pending").forEach(n=>n.classList.remove("pending"));
+      if(!el.classList.contains("chosen")) el.classList.add("pending");
+      hideLevelHover();
+      hideNodeBubble();
+      evidenceTitle.textContent=el.dataset.kind || "Vybraný level";
+      evidenceText.textContent=`Vyber příspěvek nebo úkol z portfolia, kterým doložíš dosažení levelu ${el.dataset.levelNum}. Level se aktivuje až po potvrzení důkazu.`;
+      evidenceItems.forEach(item=>item.querySelector("input").checked=false);
+      const key=levelEvidenceKey(el.dataset.subId,el.dataset.levelNum);
+      const saved=confirmedEvidenceByLevel[key];
+      if(saved?.items){
+        evidenceItems.forEach(item=>{
+          item.querySelector("input").checked=saved.items.includes(item.dataset.title || "");
+        });
+      }
+      hideEvidenceDetailBubble();
+      evidenceBubble.classList.add("open");
+      positionFixedPanel(evidenceBubble,el,18);
+      const firstChecked=evidenceItems.find(item=>item.querySelector("input")?.checked);
+      if(firstChecked) showEvidenceDetailBubble(firstChecked);
+    }
+
+    function hideEvidenceBubble(){
+      if(activeEvidenceNode && !activeEvidenceNode.classList.contains("chosen")) activeEvidenceNode.classList.remove("pending");
+      hideEvidenceDetailBubble();
+      activeEvidenceNode=null;
+      evidenceBubble.classList.remove("open");
+    }
+
+    function showLevelHover(el){
+      if(evidenceBubble.classList.contains("open")) return;
+      const saved=confirmedEvidenceByLevel[levelEvidenceKey(el.dataset.subId,el.dataset.levelNum)];
+      let extra="";
+      if(saved && ((saved.items && saved.items.length) || saved.note)){
+        const itemsHtml=(saved.items || []).map(item=>`<li>${escapeHtml(item)}</li>`).join("");
+        const noteHtml=saved.note ? `<div class="hover-proof-note"><strong>Komentář:</strong> ${escapeHtml(saved.note)}</div>` : "";
+        extra=`<div class="hover-proof-block"><div class="hover-proof-subtitle">Důkazy zvládnutí</div>${itemsHtml ? `<ul class="hover-proof-list">${itemsHtml}</ul>` : ""}${noteHtml}</div>`;
+      }
+      levelHoverTip.innerHTML=`<h3>${escapeHtml(el.dataset.label || "")}</h3><div class="kind">${escapeHtml(el.dataset.kind || "")}</div><p>${escapeHtml(el.dataset.text || "")}</p>${extra}`;
+      levelHoverTip.classList.add("open");
+      positionFixedPanel(levelHoverTip,el,14);
+    }
+
+    function hideLevelHover(){
+      levelHoverTip.classList.remove("open");
+    }
+
+    function handleNodeClick(el){
+      document.querySelectorAll(".tree-node.selected").forEach(n=>n.classList.remove("selected"));
+      el.classList.add("selected");
+      if(el.classList.contains("level")){
+        showEvidenceBubble(el);
+        return;
+      }
+      showNodeBubble(el);
+      if(el.classList.contains("sub")) zoomToNode(el);
+      else resetTreeZoom();
+    }
+
+    function zoomToNode(el){
+      const targetZoom=1.05;
+      const xPercent=parseFloat(el.style.left) || 50;
+      const yPercent=parseFloat(el.style.top) || 50;
+      const x=canvas.offsetLeft+canvas.offsetWidth*xPercent/100;
+      const y=canvas.offsetTop+canvas.offsetHeight*yPercent/100;
+      setZoom(targetZoom,false);
+      animateViewportTo(x*targetZoom-viewport.clientWidth/2,y*targetZoom-viewport.clientHeight/2,980);
+    }
+
+    function resetTreeZoom(){
+      const defaultZoom=.72;
+      const skillCenterX=canvas.offsetLeft+canvas.offsetWidth*.5;
+      const skillCenterY=canvas.offsetTop+canvas.offsetHeight*.521;
+      setZoom(defaultZoom,false);
+      animateViewportTo(skillCenterX*defaultZoom-viewport.clientWidth/2,skillCenterY*defaultZoom-viewport.clientHeight/2,980);
+    }
+
+    function chooseLevel(subId,levelNum){
+      chosenLevels[subId]=Number(levelNum);
+      renderProgressState();
+    }
+
+    function renderProgressState(){
+      document.querySelectorAll(".sub").forEach(sub=>{
+        const hasChoice=Object.prototype.hasOwnProperty.call(chosenLevels,sub.dataset.subId);
+        const chosenLevel=Number(chosenLevels[sub.dataset.subId]);
+        sub.classList.toggle("inactive",!hasChoice);
+        sub.classList.remove("glow-1","glow-2","glow-3","glow-4");
+        if(hasChoice) sub.classList.add(`glow-${chosenLevel}`);
+      });
+      document.querySelectorAll(".level").forEach(level=>{
+        const isChosen=chosenLevels[level.dataset.subId]===Number(level.dataset.levelNum);
+        level.classList.toggle("chosen",isChosen);
+      });
+      renderCoreOrbits();
+      renderOverview();
+    }
+
+    function renderOverview(){
+      cores.forEach(core=>{
+        const chosen=Object.keys(chosenLevels).filter(subId=>subToParent[subId]===core.id);
+        const percent=Math.round(chosen.length/4*100);
+        const row=document.querySelector(`[data-overview="${core.id}"]`);
+        if(!row) return;
+        row.querySelector(".bar span").style.width=`${percent}%`;
+        row.querySelector(".overview-percent").textContent=`${percent} %`;
+      });
+    }
+
+    function renderCoreOrbits(){
+      cores.forEach(core=>{
+        const coreEl=coreEls[core.id];
+        if(!coreEl) return;
+        const count=Object.keys(chosenLevels).filter(subId=>subToParent[subId]===core.id).length;
+        const isComplete=count===4;
+        const orbit=coreEl.querySelector(".pillar-orbit");
+        orbit.innerHTML="";
+        coreEl.classList.toggle("has-orbit",count>0 && !isComplete);
+        coreEl.classList.toggle("complete",isComplete);
+        if(isComplete) return;
+        for(let i=0;i<count;i++){
+          const dot=document.createElement("span");
+          dot.style.setProperty("--start-angle",`${360/Math.max(count,1)*i}deg`);
+          dot.style.setProperty("--orbit-r",`${104+(i%2)*12}px`);
+          dot.style.opacity=String(Math.max(.7,1-i*.08));
+          orbit.appendChild(dot);
+        }
+      });
+    }
+
+    function resetSelectedInfo(){
+      selectedInfoTitle.textContent="Tip mentora";
+      selectedInfoText.textContent="Klikni na libovolný button a jeho popis se ukáže v bublině přímo u něj.";
+    }
+
+    function celebrateSuccess(){
+      hideNodeBubble();
+      hideEvidenceBubble();
+      hideLevelHover();
+      successToast.classList.add("open");
+      setTimeout(()=>successToast.classList.remove("open"),1250);
+      const colors=["#ff9a3c","#6657ff","#18a96e","#ff3860","#ffd983","#ffffff"];
+      for(let i=0;i<72;i++){
+        const piece=document.createElement("span");
+        piece.className="confetti-piece";
+        piece.style.left="50vw";
+        piece.style.top="50vh";
+        piece.style.background=colors[i%colors.length];
+        piece.style.setProperty("--dx",`${(Math.random()-.5)*680}px`);
+        piece.style.setProperty("--dy",`${-120+Math.random()*560}px`);
+        piece.style.animationDelay=`${Math.random()*90}ms`;
+        document.body.appendChild(piece);
+        setTimeout(()=>piece.remove(),1350);
+      }
+    }
+
+    evidenceItems.forEach(item=>{
+      const input=item.querySelector("input");
+      input.addEventListener("change",e=>{
+        e.stopPropagation();
+        syncEvidenceSelection(item);
+      });
+      item.addEventListener("click",e=>e.stopPropagation());
+    });
+
+    evidencePromptInput.addEventListener("input",()=>{
+      if(!activeEvidenceItem) return;
+      const id=activeEvidenceItem.dataset.evidenceId || activeEvidenceItem.dataset.title || "";
+      evidenceNotesById[id]=evidencePromptInput.value;
+    });
+
+    evidenceClose.addEventListener("click",e=>{
+      e.stopPropagation();
+      hideEvidenceBubble();
+    });
+
+    evidenceSave.addEventListener("click",e=>{
+      e.stopPropagation();
+      const checkedItems=evidenceItems.filter(item=>item.querySelector("input")?.checked);
+      if(!checkedItems.length){
+        evidenceText.textContent="Nejdřív vyber aspoň jeden příspěvek nebo úkol jako důkaz. Pak level uložíme.";
+        return;
+      }
+      const note=(evidencePromptInput.value || "").trim();
+      if(!activeEvidenceItem || !note){
+        evidenceText.textContent="Vyber důkaz a doplň i vysvětlení, čím přesně tento důkaz ukazuje zvládnutí vybraného levelu.";
+        if(activeEvidenceItem) showEvidenceDetailBubble(activeEvidenceItem);
+        return;
+      }
+      if(activeEvidenceNode){
+        const key=levelEvidenceKey(activeEvidenceNode.dataset.subId,activeEvidenceNode.dataset.levelNum);
+        confirmedEvidenceByLevel[key]={
+          items:checkedItems.map(item=>item.dataset.title || item.textContent.trim()),
+          note
+        };
+        activeEvidenceNode.classList.remove("pending");
+        chooseLevel(activeEvidenceNode.dataset.subId,activeEvidenceNode.dataset.levelNum);
+      }
+      celebrateSuccess();
+    });
+
+    document.querySelectorAll(".dock-btn").forEach(btn=>{
+      btn.addEventListener("click",e=>{
+        e.stopPropagation();
+        const core=coreEls[btn.dataset.coreTarget];
+        if(core) handleNodeClick(core);
+      });
+    });
+
+    summaryClose.addEventListener("click",e=>{
+      e.stopPropagation();
+      sideSummary.classList.add("is-closed");
+      sideSummary.classList.remove("is-floating");
+      sideSummary.style.transform="";
+      helpToggle.classList.add("is-visible");
+    });
+
+    helpToggle.addEventListener("click",e=>{
+      e.stopPropagation();
+      sideSummary.classList.remove("is-closed");
+      helpToggle.classList.remove("is-visible");
+      updateFloatingSummary();
+    });
+
+    zoomRange.addEventListener("input",()=>setZoom(Number(zoomRange.value)/100,true,420));
+    zoomIn.addEventListener("click",()=>setZoom((Number(zoomRange.value)+8)/100,true,420));
+    zoomOut.addEventListener("click",()=>setZoom((Number(zoomRange.value)-8)/100,true,420));
+
+    viewport.addEventListener("wheel",e=>{
+      if(!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const direction=e.deltaY>0 ? -.05 : .05;
+      setZoomAtPoint(Number(zoomRange.value)/100+direction,e.clientX,e.clientY);
+    },{passive:false});
+
+    let isPanning=false;
+    let panStartX=0;
+    let panStartY=0;
+    let panStartLeft=0;
+    let panStartTop=0;
+
+    viewport.addEventListener("pointerdown",e=>{
+      if(e.button!==0) return;
+      if(e.target.closest(".tree-node,.zoom-controls,.side-summary,.pillar-dock,.home-link,.help-toggle,.evidence-bubble,.evidence-detail-bubble")) return;
+      isPanning=true;
+      didPan=false;
+      panStartX=e.clientX;
+      panStartY=e.clientY;
+      panStartLeft=viewport.scrollLeft;
+      panStartTop=viewport.scrollTop;
+      viewport.classList.add("is-panning");
+      document.body.style.userSelect="none";
+      e.preventDefault();
+    });
+
+    window.addEventListener("pointermove",e=>{
+      if(!isPanning) return;
+      const dx=e.clientX-panStartX;
+      const dy=e.clientY-panStartY;
+      if(Math.abs(dx)+Math.abs(dy)>4) didPan=true;
+      viewport.scrollLeft=panStartLeft-dx;
+      viewport.scrollTop=panStartTop-dy;
+      clampViewport();
+      updateFloatingSummary();
+      updateNodeBubblePosition();
+    });
+
+    function endPan(){
+      if(!isPanning) return;
+      isPanning=false;
+      viewport.classList.remove("is-panning");
+      document.body.style.userSelect="";
+      setTimeout(()=>{didPan=false},80);
+    }
+    window.addEventListener("pointerup",endPan);
+    window.addEventListener("pointercancel",endPan);
+
+    canvas.addEventListener("click",()=>{
+      if(didPan) return;
+      hideNodeBubble();
+      hideEvidenceBubble();
+      hideLevelHover();
+      resetSelectedInfo();
+      resetTreeZoom();
+    });
+
+    window.addEventListener("resize",()=>{
+      updateFloatingSummary();
+      updateNodeBubblePosition();
+      if(activeEvidenceNode && evidenceBubble.classList.contains("open")) positionFixedPanel(evidenceBubble,activeEvidenceNode,18);
+      if(evidenceDetailBubble.classList.contains("open")) positionEvidenceDetailBubble();
+    });
+
+    function animateOrganicLevelFloat(now=0){
+      levelFloatItems.forEach(item=>{
+        const t1=now*item.speed1+item.phase1;
+        const t2=now*item.speed2+item.phase2;
+        const dx=Math.sin(t1)*item.ampX+Math.sin(t2)*item.ampX*.34;
+        const dy=Math.cos(t2)*item.ampY+Math.sin(t1*.72)*item.ampY*.24;
+        item.el.style.setProperty("--fx",`${dx.toFixed(2)}px`);
+        item.el.style.setProperty("--fy",`${dy.toFixed(2)}px`);
+        item.line.setAttribute("d",describeCurve(item.from,item.to,dx,dy));
+      });
+      updateNodeBubblePosition();
+      requestAnimationFrame(animateOrganicLevelFloat);
+    }
+
+    buildTree();
+    animateOrganicLevelFloat();
+    window.addEventListener("load",centerTree);
+    setTimeout(centerTree,50);
+  </script>
+</body>
+</html>
