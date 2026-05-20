@@ -85,6 +85,19 @@ h1{font-size:28px}
 }
 .big-tab span{display:block;font-size:15px;font-weight:650;color:var(--muted);margin-top:8px}
 .big-tab:hover{transform:translateY(-4px);box-shadow:0 24px 60px rgba(40,55,90,.18)}
+.big-tab--reflection{
+  grid-column:1/-1;
+  min-height:112px;
+  text-align:left;
+  padding:22px 26px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+}
+.big-tab--reflection span{
+  max-width:520px;
+}
 .toolbar{display:flex;justify-content:space-between;margin-bottom:18px}
 .back,
 .save,
@@ -162,6 +175,26 @@ input{
 .chip.on{background:#dbfff0;border-color:#43d58d;font-weight:900}
 .warning{margin-top:9px;color:#a86b00;font-weight:800;font-size:13px}
 .plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.reflection-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+.reflection-status{
+  margin-top:14px;
+  min-height:20px;
+  color:var(--muted);
+  font-weight:800;
+}
+.reflection-status.is-error{color:#b3261e}
+.reflection-status.is-ok{color:#08784e}
+.reflection-side-list{display:grid;gap:12px}
+.reflection-side-item{
+  padding:14px;
+  border-radius:20px;
+  background:#fff;
+  border:1px solid var(--line);
+  color:var(--muted);
+  line-height:1.45;
+  font-size:14px;
+}
+.reflection-side-item strong{display:block;color:var(--ink);margin-bottom:4px}
 .bottom-pillars{
   position:fixed;
   bottom:22px;
@@ -416,6 +449,7 @@ input{
       <button class="big-tab" data-go="feel">😊 Jak se mám <span>emoce, škola, mimo školu</span></button>
       <button class="big-tab" data-go="learn">📚 Reflexe učení <span>pilíře, levely, důkazy</span></button>
       <button class="big-tab" data-go="plan">🚀 Plánování <span>další krok a dohoda</span></button>
+      <button class="big-tab big-tab--reflection" data-go="quickReflection">✍️ Samostatná reflexe <span>krátké okénko pro zapsání myšlenky, uvědomění a dalšího kroku</span></button>
     </div>
   </div>
 </section>
@@ -494,6 +528,44 @@ input{
     </div>
   </main>
 </section>
+
+<section id="quickReflection" class="screen">
+  <div class="toolbar">
+    <button class="back" data-go="home">← Hlavní stránka</button>
+    <button class="save" id="saveQuickReflection">Uložit reflexi</button>
+  </div>
+  <div class="reflection-grid">
+    <main class="panel">
+      <h2>Samostatná reflexe</h2>
+      <p class="lead">Krátké okénko mimo hlavní tři části. Zapiš, co je důležité uložit do databáze.</p>
+      <div class="field">
+        <label for="reflectionFocus">Čeho se reflexe týká?</label>
+        <input id="reflectionFocus" placeholder="Např. učení, vztahy, dnešní den, projekt">
+      </div>
+      <div class="field">
+        <label for="reflectionText">Co si chci pojmenovat?</label>
+        <textarea id="reflectionText"></textarea>
+      </div>
+      <div class="field">
+        <label for="reflectionLearning">Co jsem si uvědomil/a?</label>
+        <textarea id="reflectionLearning"></textarea>
+      </div>
+      <div class="field">
+        <label for="reflectionNextStep">Jaký je další malý krok?</label>
+        <textarea id="reflectionNextStep"></textarea>
+      </div>
+      <div class="reflection-status" id="reflectionStatus" aria-live="polite"></div>
+    </main>
+    <aside class="panel">
+      <h2>Vodítka</h2>
+      <div class="reflection-side-list">
+        <div class="reflection-side-item"><strong>1. Konkrétně</strong>Napiš jednu skutečnou situaci, ne obecný dojem.</div>
+        <div class="reflection-side-item"><strong>2. Důkaz</strong>Co by šlo ukázat v portfoliu nebo rozhovoru?</div>
+        <div class="reflection-side-item"><strong>3. Další krok</strong>Stačí malý krok, který jde udělat tento týden.</div>
+      </div>
+    </aside>
+  </div>
+</section>
 </div>
 
 <div class="bottom-pillars">
@@ -511,8 +583,12 @@ input{
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase/config.js?v=2026-05-20-mentor-reflection"></script>
+<script src="supabase/client.js?v=2026-05-20-mentor-reflection"></script>
 <script>
 const STORE="scioportMentorCleanV1";
+const mentorSupabase=window.supabaseClient||null;
 const emotions=["😄 radost","😌 klid","🤔 zvědavost","🦁 hrdost","😶 nejistota","😵 stres","😢 smutek","😡 vztek"];
 const posts=[
   {id:"p1",title:"Prezentace k Samorostu"},
@@ -538,6 +614,76 @@ state.levels=state.levels||{};
 state.evidence=state.evidence||{};
 
 function save(){localStorage.setItem(STORE,JSON.stringify(state))}
+function localDateKey(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,"0");
+  const day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function setReflectionStatus(message,type){
+  const el=document.getElementById("reflectionStatus");
+  if(!el)return;
+  el.textContent=message||"";
+  el.classList.toggle("is-error",type==="error");
+  el.classList.toggle("is-ok",type==="ok");
+}
+async function getMentorUser(){
+  if(!mentorSupabase||!mentorSupabase.auth)return null;
+  const result=await mentorSupabase.auth.getUser();
+  if(result&&result.error)throw result.error;
+  return result&&result.data?result.data.user:null;
+}
+async function saveQuickReflectionToDatabase(button){
+  const focus=(document.getElementById("reflectionFocus")?.value||"").trim();
+  const reflectionText=(document.getElementById("reflectionText")?.value||"").trim();
+  const learningText=(document.getElementById("reflectionLearning")?.value||"").trim();
+  const nextStep=(document.getElementById("reflectionNextStep")?.value||"").trim();
+
+  if(!reflectionText&&!learningText&&!nextStep){
+    setReflectionStatus("Nejdriv napis aspon jednu cast reflexe.", "error");
+    return;
+  }
+  if(!mentorSupabase){
+    setReflectionStatus("Supabase klient neni dostupny. Zkontroluj supabase/config.js.", "error");
+    return;
+  }
+
+  const originalText=button?button.textContent:"";
+  if(button){
+    button.disabled=true;
+    button.textContent="Ukladam...";
+  }
+  setReflectionStatus("Ukladam do databaze...", "");
+
+  try{
+    const user=await getMentorUser();
+    if(!user||!user.id){
+      setReflectionStatus("Nejsi prihlaseny/a. Prihlas se pres ScioPort a zkus to znovu.", "error");
+      return;
+    }
+
+    const {error}=await mentorSupabase.from("mentor_reflections").insert({
+      user_id:user.id,
+      user_email:user.email||"",
+      date_key:localDateKey(),
+      focus:focus||"samostatna reflexe",
+      reflection_text:reflectionText,
+      learning_text:learningText,
+      next_step:nextStep
+    });
+    if(error)throw error;
+    setReflectionStatus("Reflexe je ulozena v databazi.", "ok");
+  }catch(error){
+    console.error("Mentor reflection save failed:",error);
+    setReflectionStatus("Reflexi se nepodarilo ulozit. Over, ze je spusteny SQL patch pro mentor_reflections.", "error");
+  }finally{
+    if(button){
+      button.disabled=false;
+      button.textContent=originalText||"Ulozit reflexi";
+    }
+  }
+}
 function go(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   const next=document.getElementById(id);
@@ -671,7 +817,7 @@ function renderSub(pk,s){
     </div>
   </div>`;
 }
-["feelingText","needText","planGoal","planProof","planStep","planSupport"].forEach(id=>{
+["feelingText","needText","planGoal","planProof","planStep","planSupport","reflectionFocus","reflectionText","reflectionLearning","reflectionNextStep"].forEach(id=>{
   const el=document.getElementById(id);
   if(!el)return;
   el.value=state[id]||"";
@@ -682,6 +828,13 @@ document.querySelectorAll(".save").forEach(b=>b.onclick=()=>{
   b.textContent="Uloženo ✓";
   setTimeout(()=>b.textContent="Uložit",900);
 });
+const saveQuickReflectionButton=document.getElementById("saveQuickReflection");
+if(saveQuickReflectionButton){
+  saveQuickReflectionButton.onclick=async()=>{
+    save();
+    await saveQuickReflectionToDatabase(saveQuickReflectionButton);
+  };
+}
 renderEmotion();
 renderLearn();
 </script>

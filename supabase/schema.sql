@@ -291,6 +291,32 @@ create table if not exists public.daily_reflections (
 -- Backfill / upgrade reflection columns for existing projects.
 alter table if exists public.daily_reflections add column if not exists mood text;
 
+create table if not exists public.mentor_reflections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  user_email text,
+  date_key text not null,
+  focus text not null default 'samostatna reflexe',
+  reflection_text text not null default '',
+  learning_text text not null default '',
+  next_step text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Backfill / upgrade standalone mentor reflection columns for existing projects.
+alter table if exists public.mentor_reflections add column if not exists user_email text;
+alter table if exists public.mentor_reflections add column if not exists date_key text not null default to_char(now(), 'YYYY-MM-DD');
+alter table if exists public.mentor_reflections add column if not exists focus text not null default 'samostatna reflexe';
+alter table if exists public.mentor_reflections add column if not exists reflection_text text not null default '';
+alter table if exists public.mentor_reflections add column if not exists learning_text text not null default '';
+alter table if exists public.mentor_reflections add column if not exists next_step text not null default '';
+alter table if exists public.mentor_reflections add column if not exists created_at timestamptz not null default now();
+alter table if exists public.mentor_reflections add column if not exists updated_at timestamptz not null default now();
+
+create index if not exists mentor_reflections_user_created_idx
+on public.mentor_reflections(user_id, created_at desc);
+
 -- Row Level Security (client-side safe access)
 alter table public.guide_emails enable row level security;
 alter table public.profiles enable row level security;
@@ -301,6 +327,9 @@ alter table public.template_responses enable row level security;
 alter table public.portfolio_entries enable row level security;
 alter table public.portfolio_comments enable row level security;
 alter table public.daily_reflections enable row level security;
+alter table public.mentor_reflections enable row level security;
+
+grant select, insert, update, delete on public.mentor_reflections to authenticated;
 
 -- guide_emails
 drop policy if exists guide_emails_select_guide on public.guide_emails;
@@ -555,3 +584,33 @@ for update
 to authenticated
 using (user_id = auth.uid())
 with check (user_id = auth.uid());
+
+-- mentor_reflections
+drop policy if exists mentor_reflections_select_self_or_guide on public.mentor_reflections;
+create policy mentor_reflections_select_self_or_guide
+on public.mentor_reflections
+for select
+to authenticated
+using (user_id = auth.uid() or public.is_guide());
+
+drop policy if exists mentor_reflections_insert_self on public.mentor_reflections;
+create policy mentor_reflections_insert_self
+on public.mentor_reflections
+for insert
+to authenticated
+with check (user_id = auth.uid());
+
+drop policy if exists mentor_reflections_update_self on public.mentor_reflections;
+create policy mentor_reflections_update_self
+on public.mentor_reflections
+for update
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+drop policy if exists mentor_reflections_delete_self_or_guide on public.mentor_reflections;
+create policy mentor_reflections_delete_self_or_guide
+on public.mentor_reflections
+for delete
+to authenticated
+using (user_id = auth.uid() or public.is_guide());
