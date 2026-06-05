@@ -4742,9 +4742,15 @@
               .where('recipientType', '==', recipientType)
               .where('recipientValueLower', '==', recipientValue)
               .onSnapshot(snapshot => {
-                const addedTemplates = snapshot.docChanges()
+                const changes = typeof snapshot.docChanges === 'function'
+                  ? snapshot.docChanges()
+                  : (Array.isArray(snapshot.docs) ? snapshot.docs.map(doc => ({ type: 'added', doc })) : []);
+                const addedTemplates = changes
                   .filter(change => change.type === 'added')
-                  .map(change => ({ id: change.doc.id, ...change.doc.data() }))
+                  .map(change => {
+                    const doc = change.doc || change;
+                    return { id: doc.id, ...doc.data() };
+                  })
                   .filter(template => template && template.id);
 
                 if (!addedTemplates.length) {
