@@ -5,6 +5,8 @@
   box-shadow: var(--shadow-sm);
   padding: 22px;
   margin-top: 22px;
+  display: block !important;
+  visibility: visible !important;
 }
 
 .ai-chat-shell {
