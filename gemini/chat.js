@@ -1,0 +1,246 @@
+(function () {
+  const STORAGE_KEY = 'scioport-ai-assistant-instructions';
+  const MAX_HISTORY = 10;
+  const chatHistory = [];
+
+  const panel = document.getElementById('ai-chat-panel');
+  if (!panel) {
+    return;
+  }
+
+  const messagesContainer = panel.querySelector('#ai-chat-messages');
+  const instructionsInput = panel.querySelector('#ai-instructions');
+  const userInput = panel.querySelector('#ai-chat-input');
+  const sendButton = panel.querySelector('#ai-chat-send');
+  const clearButton = panel.querySelector('#ai-chat-clear');
+  const statusElement = panel.querySelector('#ai-chat-status');
+  const presetButtons = panel.querySelectorAll('[data-ai-preset]');
+
+  function getApiKey() {
+    return String(window.GEMINI_API_KEY || '').trim();
+  }
+
+  function getModelName() {
+    return String(window.GEMINI_MODEL_NAME || 'gemini-3.5-flash').trim();
+  }
+
+  function getDefaultInstructions() {
+    return String(window.GEMINI_DEFAULT_INSTRUCTIONS || '').trim() ||
+      'Jsi vzdělávací AI chatbot v aplikaci. Odpovídej jasně, vstřícně a srozumitelně.';
+  }
+
+  function buildApiUrl() {
+    const apiKey = getApiKey();
+    const modelName = getModelName();
+    if (!apiKey) {
+      return null;
+    }
+    return `https://gemini.googleapis.com/v1/models/${encodeURIComponent(modelName)}:generateText?key=${encodeURIComponent(apiKey)}`;
+  }
+
+  function saveInstructions() {
+    if (!instructionsInput) {
+      return;
+    }
+    localStorage.setItem(STORAGE_KEY, instructionsInput.value || '');
+  }
+
+  function loadInstructions() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (instructionsInput && saved) {
+      instructionsInput.value = saved;
+    }
+  }
+
+  function setStatus(message, isError) {
+    if (!statusElement) {
+      return;
+    }
+    statusElement.textContent = message || '';
+    statusElement.classList.toggle('ai-chat-status-error', Boolean(isError));
+  }
+
+  function createMessageElement(role, text) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `ai-chat-message ai-chat-message--${role}`;
+
+    const egg = document.createElement('span');
+    egg.className = 'ai-chat-message-role';
+    egg.textContent = role === 'assistant' ? 'AI' : 'Ty';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'ai-chat-message-bubble';
+    bubble.textContent = text;
+
+    wrapper.appendChild(egg);
+    wrapper.appendChild(bubble);
+    return wrapper;
+  }
+
+  function appendMessage(role, text) {
+    if (!messagesContainer) {
+      return;
+    }
+    const message = createMessageElement(role, text);
+    messagesContainer.appendChild(message);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  function getConversationMessages() {
+    const systemPrompt = instructionsInput.value.trim() || getDefaultInstructions();
+    const messages = [
+      {
+        author: 'system',
+        content: [{ type: 'text', text: systemPrompt }]
+      }
+    ];
+
+    chatHistory.slice(-MAX_HISTORY).forEach((entry) => {
+      messages.push({
+        author: entry.role === 'assistant' ? 'assistant' : 'user',
+        content: [{ type: 'text', text: entry.content }]
+      });
+    });
+
+    return messages;
+  }
+
+  function extractAssistantText(response) {
+    const candidates = response?.candidates || response?.output?.[0]?.candidates;
+    if (Array.isArray(candidates) && candidates.length > 0) {
+      const content = candidates[0].content || candidates[0].message?.content;
+      if (Array.isArray(content)) {
+        return content.map((item) => item.text || '').join('');
+      }
+    }
+
+    const output = response?.output;
+    if (Array.isArray(output) && output.length > 0) {
+      const content = output[0]?.content;
+      if (Array.isArray(content)) {
+        return content.map((item) => item.text || '').join('');
+      }
+    }
+
+    return '';
+  }
+
+  async function sendUserMessage() {
+    if (!userInput || !userInput.value.trim()) {
+      setStatus('Napiš prosím zprávu.', true);
+      return;
+    }
+
+    const userText = userInput.value.trim();
+    userInput.value = '';
+    appendMessage('user', userText);
+    chatHistory.push({ role: 'user', content: userText });
+    setStatus('Odesílám dotaz do Gemini...');
+    userInput.disabled = true;
+    sendButton.disabled = true;
+    clearButton.disabled = true;
+
+    const endpoint = buildApiUrl();
+    if (!endpoint) {
+      setStatus('Není nastaven Gemini API klíč v souboru gemini/config.js.', true);
+      userInput.disabled = false;
+      sendButton.disabled = false;
+      clearButton.disabled = false;
+      return;
+    }
+
+    try {
+      const requestBody = {
+        temperature: 0.45,
+        candidateCount: 1,
+        maxOutputTokens: 512,
+        topP: 0.95,
+        topK: 40,
+        messages: getConversationMessages()
+      };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `${response.status} ${response.statusText}`);
+      }
+
+      const json = await response.json();
+      const assistantText = extractAssistantText(json);
+      if (!assistantText) {
+        throw new Error('Gemini nevrátil žádný text.' );
+      }
+
+      appendMessage('assistant', assistantText);
+      chatHistory.push({ role: 'assistant', content: assistantText });
+      setStatus('Odpověď přijata. Můžeš pokračovat další otázkou.');
+    } catch (error) {
+      appendMessage('assistant', 'Omlouvám se, nastala chyba při volání Gemini.');
+      setStatus(`Chyba Gemini: ${String(error.message || error)}`, true);
+      console.error(error);
+    } finally {
+      userInput.disabled = false;
+      sendButton.disabled = false;
+      clearButton.disabled = false;
+      userInput.focus();
+    }
+  }
+
+  function clearChat() {
+    chatHistory.length = 0;
+    if (messagesContainer) {
+      messagesContainer.innerHTML = '';
+    }
+    setStatus('Chat vyčištěn. Vlož nové instrukce nebo napiš další zprávu.');
+  }
+
+  function applyPreset(event) {
+    const button = event.currentTarget;
+    if (!button) {
+      return;
+    }
+    const preset = button.dataset.aiPreset || '';
+    if (!preset) {
+      return;
+    }
+    instructionsInput.value = preset;
+    saveInstructions();
+    setStatus('Instrukce byly aktualizovány.');
+  }
+
+  loadInstructions();
+  setStatus('Vyplň instrukce, potom napiš svoji první zprávu.');
+
+  if (sendButton) {
+    sendButton.addEventListener('click', sendUserMessage);
+  }
+
+  if (clearButton) {
+    clearButton.addEventListener('click', clearChat);
+  }
+
+  if (userInput) {
+    userInput.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendUserMessage();
+      }
+    });
+  }
+
+  if (instructionsInput) {
+    instructionsInput.addEventListener('change', saveInstructions);
+    instructionsInput.addEventListener('input', saveInstructions);
+  }
+
+  presetButtons.forEach(function (button) {
+    button.addEventListener('click', applyPreset);
+  });
+})();

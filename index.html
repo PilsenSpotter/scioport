@@ -10,6 +10,7 @@
     <title>ScioPort</title>
     <link rel="icon" href="Media/icons/sciokoly_logo.ico" type="image/x-icon">
     <link rel="stylesheet" href="Style/style.css?v=2026-05-11-avatar-boy-real-eyes-size">
+    <link rel="stylesheet" href="Style/ai-chat.css">
 </head>
 <body>
     <main>
@@ -471,6 +472,33 @@
                         <span>Mentorské prostředí</span>
                     </a>
                 </div>
+            </div>
+        </section>
+        <section class="ai-chat-panel" id="ai-chat-panel">
+            <div class="ai-chat-shell">
+                <div class="ai-chat-header">
+                    <p class="ai-chat-eyebrow">AI průvodce</p>
+                    <h2>Chatbot Gemini Flash 3.5</h2>
+                    <p class="ai-chat-intro">Zde vlož přesné instrukce pro AI asistenta. Poté napiš otázku a získej odpověď vhodnou pro výuku.</p>
+                </div>
+                <div class="ai-chat-settings">
+                    <label class="ai-chat-label" for="ai-instructions">Instrukce pro asistenta</label>
+                    <textarea id="ai-instructions" rows="4" placeholder="Zde zadej instrukce, které má AI vždy dodržovat."></textarea>
+                    <div class="ai-chat-presets">
+                        <button type="button" data-ai-preset="Odpovídej jako laskavý učitel, který vysvětluje žákovi srozumitelně a podporuje zvědavost.">Učitel</button>
+                        <button type="button" data-ai-preset="Vysvětluj stručně a přehledně s jasnými kroky, aby žák mohl snadno pochopit nový úkol.">Stručně</button>
+                    </div>
+                </div>
+                <div class="ai-chat-messages" id="ai-chat-messages" aria-live="polite" aria-atomic="false"></div>
+                <div class="ai-chat-compose">
+                    <label class="ai-chat-label" for="ai-chat-input">Tvoje zpráva</label>
+                    <textarea id="ai-chat-input" rows="2" placeholder="Napiš otázku nebo požadavek..."></textarea>
+                    <div class="ai-chat-controls">
+                        <button type="button" id="ai-chat-send">Odeslat</button>
+                        <button type="button" id="ai-chat-clear">Vyčistit chat</button>
+                    </div>
+                </div>
+                <p class="ai-chat-status" id="ai-chat-status"></p>
             </div>
         </section>
         <section class="student-reflect-panel" id="student-reflect-panel" aria-hidden="true">
@@ -6117,5 +6145,7 @@
           initGooglePicker();
           window.addEventListener('load', initGoogleAuth);
     </script>
+    <script src="gemini/config.js"></script>
+    <script src="gemini/chat.js"></script>
 </body>
 </html>
