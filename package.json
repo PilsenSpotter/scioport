@@ -1,0 +1,9 @@
+{
+  "name": "scioport",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static site for Scioport",
+  "scripts": {
+    "build": "echo \"No build step required\""
+  }
+}
