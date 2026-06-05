@@ -25,5 +25,5 @@ When faced with a nontrivial new task, check if available skills (via learnSkill
 - image-generation: Generate images from text prompts. [visual content needed]
 - clarification-questions: Ask 1-3 concise follow-up questions with smart options to gather missing task context. [missing context]
 - dynamic-forms: Present a structured form to collect user input (settings, preferences, multi-field data). [structured input needed]
-- diagrams: Create Mermaid diagrams and visualizations. Types: mindmap, pie-chart, sequence, class, state. [visual explanation needed] Specializations (use "diagrams:<name1>;<name2>"): mindmap, pie-chart, sequence, class, state.
+- diagrams: Create Mermaid diagrams and visualizations.  Types: mindmap, pie-chart, sequence, class, state. [visual explanation needed] Specializations (use "diagrams:<name1>;<name2>"): mindmap, pie-chart, sequence, class, state.
 `;
