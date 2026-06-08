@@ -44,7 +44,7 @@
     if (!apiKey) {
       return null;
     }
-    return `https://gemini.googleapis.com/v1/models/${encodeURIComponent(modelName)}:generateText?key=${encodeURIComponent(apiKey)}`;
+    return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(apiKey)}`;
   }
 
   function saveInstructions() {
@@ -164,39 +164,32 @@
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
-  function getConversationMessages() {
-    const systemPrompt = instructionsInput.value.trim() || getDefaultInstructions();
-    const messages = [
-      {
-        author: 'system',
-        content: [{ type: 'text', text: systemPrompt }]
-      }
-    ];
+  function getSystemInstruction() {
+    const systemPrompt = instructionsInput
+      ? String(instructionsInput.value || '').trim() || getDefaultInstructions()
+      : getDefaultInstructions();
+    return {
+      parts: [{ text: systemPrompt }]
+    };
+  }
 
-    chatHistory.slice(-MAX_HISTORY).forEach((entry) => {
-      messages.push({
-        author: entry.role === 'assistant' ? 'assistant' : 'user',
-        content: [{ type: 'text', text: entry.content }]
-      });
-    });
-
-    return messages;
+  function getConversationContents() {
+    return chatHistory.slice(-MAX_HISTORY).map((entry) => ({
+      role: entry.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: entry.content }]
+    }));
   }
 
   function extractAssistantText(response) {
-    const candidates = response?.candidates || response?.output?.[0]?.candidates;
+    const candidates = response && Array.isArray(response.candidates)
+      ? response.candidates
+      : [];
     if (Array.isArray(candidates) && candidates.length > 0) {
-      const content = candidates[0].content || candidates[0].message?.content;
-      if (Array.isArray(content)) {
-        return content.map((item) => item.text || '').join('');
-      }
-    }
-
-    const output = response?.output;
-    if (Array.isArray(output) && output.length > 0) {
-      const content = output[0]?.content;
-      if (Array.isArray(content)) {
-        return content.map((item) => item.text || '').join('');
+      const parts = candidates[0] && candidates[0].content && Array.isArray(candidates[0].content.parts)
+        ? candidates[0].content.parts
+        : [];
+      if (parts.length) {
+        return parts.map((item) => item.text || '').join('');
       }
     }
 
@@ -229,12 +222,15 @@
 
     try {
       const requestBody = {
-        temperature: 0.45,
-        candidateCount: 1,
-        maxOutputTokens: 512,
-        topP: 0.95,
-        topK: 40,
-        messages: getConversationMessages()
+        systemInstruction: getSystemInstruction(),
+        contents: getConversationContents(),
+        generationConfig: {
+          temperature: 0.45,
+          candidateCount: 1,
+          maxOutputTokens: 512,
+          topP: 0.95,
+          topK: 40
+        }
       };
 
       const response = await fetch(endpoint, {
@@ -247,7 +243,16 @@
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || `${response.status} ${response.statusText}`);
+        let message = errorText || `${response.status} ${response.statusText}`;
+        try {
+          const parsed = JSON.parse(errorText);
+          message = parsed && parsed.error && parsed.error.message
+            ? parsed.error.message
+            : message;
+        } catch (_) {
+          // Keep the raw response text.
+        }
+        throw new Error(`${response.status} ${response.statusText}: ${message}`);
       }
 
       const json = await response.json();
