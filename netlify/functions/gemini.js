@@ -10,12 +10,74 @@ const ALLOWED_MODELS = new Set([
 ]);
 const ALLOWED_PROMPT_PROFILES = new Set(['sciocile', 'general']);
 const APP_RUNTIME_GUARDRAILS = [
-  'Důležité pro tuto integraci:',
-  '- Nemáš k dispozici interní nástroje zmíněné v promptu, například learnSkill, get_sck_context, search_curriculum ani get_curriculum_detail.',
-  '- Nikdy nepředstírej volání nedostupného nástroje.',
-  '- Pokud by prompt vyžadoval nedostupný nástroj, odpověz podle dostupného kontextu a jasně řekni, že detailní databázový zdroj v této integraci není připojený.'
+  'Dulezite pro tuto integraci:',
+  '- Interni nastroje learnSkill a askClarificationQuestions jsou v teto integraci pripojene pres Gemini function calling.',
+  '- Kdyz chces pouzit learnSkill nebo askClarificationQuestions, zavolej pripojenou funkci. Nikdy nevypisuj <tool_code>, print(...), pseudo-kod ani text "Nyni aktivuji...".',
+  '- Nastroje get_sck_context, search_curriculum a get_curriculum_detail zatim nejsou pripojene. Nepredstirej jejich volani.',
+  '- Pokud by prompt vyzadoval nepripojeny nastroj, odpovez podle dostupneho kontextu a jasne rekni, ze detailni databazovy zdroj v teto integraci neni pripojeny.'
 ].join('\n');
 const promptCache = new Map();
+const TOOL_DECLARATIONS = [
+  {
+    functionDeclarations: [
+      {
+        name: 'learnSkill',
+        description: 'Activates one of the assistant skills listed in the system prompt.',
+        parameters: {
+          type: 'object',
+          properties: {
+            skillName: {
+              type: 'string',
+              description: 'The skill to activate.',
+              enum: [
+                'clarification-questions',
+                'web-search',
+                'image-generation',
+                'dynamic-forms',
+                'diagrams'
+              ]
+            },
+            specializations: {
+              type: 'array',
+              description: 'Optional skill specializations, for example diagram types.',
+              items: { type: 'string' }
+            }
+          },
+          required: ['skillName']
+        }
+      },
+      {
+        name: 'askClarificationQuestions',
+        description: 'Asks 1-3 concise follow-up questions with optional answer choices.',
+        parameters: {
+          type: 'object',
+          properties: {
+            questions: {
+              type: 'array',
+              description: 'One to three concise clarification questions.',
+              items: {
+                type: 'object',
+                properties: {
+                  question: {
+                    type: 'string',
+                    description: 'The question text.'
+                  },
+                  options: {
+                    type: 'array',
+                    description: 'Optional short answer choices.',
+                    items: { type: 'string' }
+                  }
+                },
+                required: ['question']
+              }
+            }
+          },
+          required: ['questions']
+        }
+      }
+    ]
+  }
+];
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -97,6 +159,244 @@ function getGenerationConfig(value) {
   };
 }
 
+async function callGemini(endpoint, apiKey, body) {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey
+    },
+    body: JSON.stringify(body)
+  });
+
+  const text = await response.text();
+  let responseBody = null;
+  try {
+    responseBody = text ? JSON.parse(text) : {};
+  } catch (error) {
+    responseBody = { error: text || 'Gemini returned an unreadable response.' };
+  }
+
+  if (!response.ok) {
+    const message = responseBody && responseBody.error && responseBody.error.message
+      ? responseBody.error.message
+      : responseBody.error || `${response.status} ${response.statusText}`;
+    return {
+      ok: false,
+      status: response.status,
+      error: message
+    };
+  }
+
+  return {
+    ok: true,
+    body: responseBody
+  };
+}
+
+function getModelContent(responseBody) {
+  const candidates = responseBody && Array.isArray(responseBody.candidates)
+    ? responseBody.candidates
+    : [];
+  const content = candidates[0] && candidates[0].content;
+  if (!content || !Array.isArray(content.parts)) {
+    return null;
+  }
+
+  return {
+    role: content.role || 'model',
+    parts: content.parts
+  };
+}
+
+function getResponseText(responseBody) {
+  const content = getModelContent(responseBody);
+  if (!content) {
+    return '';
+  }
+
+  return content.parts
+    .map((part) => (part && typeof part.text === 'string' ? part.text : ''))
+    .join('');
+}
+
+function buildTextResponse(text) {
+  return {
+    candidates: [
+      {
+        content: {
+          role: 'model',
+          parts: [{ text }]
+        },
+        finishReason: 'STOP'
+      }
+    ]
+  };
+}
+
+function getFunctionCalls(responseBody) {
+  const content = getModelContent(responseBody);
+  if (!content) {
+    return [];
+  }
+
+  return content.parts
+    .map((part) => part && (part.functionCall || part.function_call))
+    .filter((call) => call && call.name)
+    .map((call) => ({
+      name: String(call.name),
+      args: call.args && typeof call.args === 'object' ? call.args : {}
+    }));
+}
+
+function cleanText(value, fallback) {
+  const text = String(value || '').trim();
+  return text || fallback || '';
+}
+
+function normalizeStringList(value, limit) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => cleanText(item))
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function getSkillName(args) {
+  return cleanText(args.skillName || args.skill_name || args.name || args.skill, '');
+}
+
+function normalizeClarificationQuestions(args) {
+  const rawQuestions = Array.isArray(args.questions) ? args.questions : [];
+  return rawQuestions
+    .map((item) => {
+      if (typeof item === 'string') {
+        return {
+          question: cleanText(item),
+          options: []
+        };
+      }
+
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+
+      const question = cleanText(item.question || item.text || item.prompt);
+      if (!question) {
+        return null;
+      }
+
+      return {
+        question,
+        options: normalizeStringList(item.options || item.choices, 4)
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function buildClarificationText(questions) {
+  if (!questions.length) {
+    return 'Potrebuju si to nejdriv upresnit: co presne chces, aby AI s timto ukolem udelala?';
+  }
+
+  const lines = ['Potrebuju si upresnit par veci:'];
+  questions.forEach((item, index) => {
+    lines.push(`${index + 1}. ${item.question}`);
+    if (item.options.length) {
+      lines.push(`Moznosti: ${item.options.join(' / ')}`);
+    }
+  });
+  return lines.join('\n');
+}
+
+function runTool(call) {
+  const args = call.args && typeof call.args === 'object' ? call.args : {};
+
+  if (call.name === 'learnSkill') {
+    const skillName = getSkillName(args);
+    if (skillName === 'clarification-questions') {
+      return {
+        activated: true,
+        skillName,
+        instructions: 'Clarification questions skill is active. If more context is needed, call askClarificationQuestions with 1-3 concrete questions. If enough context is present, answer directly. Do not mention activation or tool code.'
+      };
+    }
+
+    return {
+      activated: false,
+      skillName,
+      availableSkills: ['clarification-questions'],
+      instructions: 'This app currently supports only clarification-questions. Continue with the available context and do not pretend unavailable tools were called.'
+    };
+  }
+
+  if (call.name === 'askClarificationQuestions') {
+    return {
+      questions: normalizeClarificationQuestions(args),
+      instructions: 'Present these questions to the user as the final response and wait for answers.'
+    };
+  }
+
+  return {
+    error: `Unsupported tool: ${call.name}`,
+    instructions: 'Do not pretend this tool is available. Continue with the available context.'
+  };
+}
+
+function buildToolResponseParts(calls) {
+  return calls.map((call) => ({
+    functionResponse: {
+      name: call.name,
+      response: runTool(call)
+    }
+  }));
+}
+
+function getClarificationCall(calls) {
+  return calls.find((call) => call.name === 'askClarificationQuestions') || null;
+}
+
+function getPseudoToolCalls(text) {
+  const calls = [];
+  const learnSkillPattern = /learnSkill\(\s*["']([^"']+)["']\s*\)/g;
+  let match = learnSkillPattern.exec(text);
+  while (match) {
+    calls.push({
+      name: 'learnSkill',
+      args: { skillName: match[1] }
+    });
+    match = learnSkillPattern.exec(text);
+  }
+
+  const toolNamePattern = /\b(askClarificationQuestions|get_sck_context|search_curriculum|get_curriculum_detail)\s*\(/g;
+  match = toolNamePattern.exec(text);
+  while (match) {
+    calls.push({
+      name: match[1],
+      args: {}
+    });
+    match = toolNamePattern.exec(text);
+  }
+
+  return calls;
+}
+
+function hasPseudoToolCode(text) {
+  return /<tool_code>|<\/tool_code>|learnSkill\(|askClarificationQuestions\(|get_sck_context\(|search_curriculum\(|get_curriculum_detail\(|print\(/i.test(text);
+}
+
+function stripPseudoToolCode(text) {
+  return String(text || '')
+    .replace(/<tool_code>[\s\S]*?<\/tool_code>/gi, '')
+    .replace(/^\s*Nyn\S*\s+aktivuji[^\n]*\n?/gim, '')
+    .replace(/^\s*.*(?:learnSkill|askClarificationQuestions|get_sck_context|search_curriculum|get_curriculum_detail|print\()[^\n]*\n?/gim, '')
+    .trim();
+}
+
 exports.handler = async function handler(event) {
   if (event.httpMethod === 'OPTIONS') {
     return {
@@ -130,40 +430,80 @@ exports.handler = async function handler(event) {
   }
 
   const model = getModel(payload.model);
-  const requestBody = {
-    contents,
+  const baseRequestBody = {
     systemInstruction: getSystemInstruction(),
-    generationConfig: getGenerationConfig(payload.generationConfig)
+    generationConfig: getGenerationConfig(payload.generationConfig),
+    tools: TOOL_DECLARATIONS
   };
+  const conversationContents = contents.slice();
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
   try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey
-      },
-      body: JSON.stringify(requestBody)
-    });
+    let lastBody = null;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const gemini = await callGemini(endpoint, apiKey, {
+        ...baseRequestBody,
+        contents: conversationContents
+      });
 
-    const text = await response.text();
-    let body = null;
-    try {
-      body = text ? JSON.parse(text) : {};
-    } catch (error) {
-      body = { error: text || 'Gemini returned an unreadable response.' };
+      if (!gemini.ok) {
+        return jsonResponse(gemini.status, { error: gemini.error });
+      }
+
+      lastBody = gemini.body;
+      const calls = getFunctionCalls(lastBody);
+      const clarificationCall = getClarificationCall(calls);
+
+      if (clarificationCall) {
+        const questions = normalizeClarificationQuestions(clarificationCall.args);
+        return jsonResponse(200, buildTextResponse(buildClarificationText(questions)));
+      }
+
+      if (calls.length) {
+        const modelContent = getModelContent(lastBody);
+        if (modelContent) {
+          conversationContents.push(modelContent);
+        }
+        conversationContents.push({
+          role: 'user',
+          parts: buildToolResponseParts(calls)
+        });
+        continue;
+      }
+
+      const responseText = getResponseText(lastBody);
+      const pseudoCalls = getPseudoToolCalls(responseText);
+      if (pseudoCalls.length) {
+        conversationContents.push({
+          role: 'user',
+          parts: [
+            {
+              text: [
+                'Runtime handled the pseudo tool call instead of showing it to the user.',
+                `Tool results: ${JSON.stringify(pseudoCalls.map((call) => runTool(call)))}`,
+                'Now produce only the user-facing answer in Czech. Do not mention <tool_code>, print(...), or tool calls.'
+              ].join('\n')
+            }
+          ]
+        });
+        continue;
+      }
+
+      if (hasPseudoToolCode(responseText)) {
+        const visibleText = stripPseudoToolCode(responseText);
+        return jsonResponse(200, buildTextResponse(
+          visibleText || 'Potrebuju si to nejdriv upresnit. Napis mi prosim trochu vic kontextu.'
+        ));
+      }
+
+      return jsonResponse(200, lastBody);
     }
 
-    if (!response.ok) {
-      const message = body && body.error && body.error.message
-        ? body.error.message
-        : body.error || `${response.status} ${response.statusText}`;
-      return jsonResponse(response.status, { error: message });
-    }
-
-    return jsonResponse(200, body);
+    const finalText = stripPseudoToolCode(getResponseText(lastBody));
+    return jsonResponse(200, buildTextResponse(
+      finalText || 'Potrebuju si to nejdriv upresnit. Napis mi prosim trochu vic kontextu.'
+    ));
   } catch (error) {
     return jsonResponse(502, { error: String(error && error.message ? error.message : error) });
   }
