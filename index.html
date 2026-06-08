@@ -10,6 +10,7 @@
     <title>ScioPort</title>
     <link rel="icon" href="Media/icons/sciokoly_logo.ico" type="image/x-icon">
     <link rel="stylesheet" href="Style/style.css?v=2026-05-11-avatar-boy-real-eyes-size">
+    <link rel="stylesheet" href="Style/ai-chat.css">
 </head>
 <body>
     <main>
@@ -476,6 +477,33 @@
                 </div>
             </div>
         </section>
+        <section class="ai-chat-panel" id="ai-chat-panel">
+            <div class="ai-chat-shell">
+                <div class="ai-chat-header">
+                    <p class="ai-chat-eyebrow">AI průvodce</p>
+                    <h2>Chatbot Gemini Flash 3.5</h2>
+                    <p class="ai-chat-intro">Zde vlož přesné instrukce pro AI asistenta. Poté napiš otázku a získej odpověď vhodnou pro výuku.</p>
+                </div>
+                <div class="ai-chat-settings">
+                    <label class="ai-chat-label" for="ai-instructions">Instrukce pro asistenta</label>
+                    <textarea id="ai-instructions" rows="4" placeholder="Zde zadej instrukce, které má AI vždy dodržovat."></textarea>
+                    <div class="ai-chat-presets">
+                        <button type="button" data-ai-preset="Odpovídej jako laskavý učitel, který vysvětluje žákovi srozumitelně a podporuje zvědavost.">Učitel</button>
+                        <button type="button" data-ai-preset="Vysvětluj stručně a přehledně s jasnými kroky, aby žák mohl snadno pochopit nový úkol.">Stručně</button>
+                    </div>
+                </div>
+                <div class="ai-chat-messages" id="ai-chat-messages" aria-live="polite" aria-atomic="false"></div>
+                <div class="ai-chat-compose">
+                    <label class="ai-chat-label" for="ai-chat-input">Tvoje zpráva</label>
+                    <textarea id="ai-chat-input" rows="2" placeholder="Napiš otázku nebo požadavek..."></textarea>
+                    <div class="ai-chat-controls">
+                        <button type="button" id="ai-chat-send">Odeslat</button>
+                        <button type="button" id="ai-chat-clear">Vyčistit chat</button>
+                    </div>
+                </div>
+                <p class="ai-chat-status" id="ai-chat-status"></p>
+            </div>
+        </section>
         <section class="student-reflect-panel" id="student-reflect-panel" aria-hidden="true">
             <div class="student-reflect-card">
                 <div class="student-reflect-header">
@@ -686,6 +714,7 @@
         }
         let subjectsUnsubscribe = null;
         let templateNotificationUnsubscribers = [];
+        let supabaseTemplateChannels = [];
         let templateNotificationSeen = new Set();
         const activeTemplateNotifications = new Set();
         const TEMPLATE_TOAST_LIMIT = 3;
@@ -4361,9 +4390,9 @@
               return [];
             }
 
-            const queries = [];
             const email = currentUser.email ? currentUser.email.toLowerCase() : '';
             const className = userProfile.className ? userProfile.className.toLowerCase() : '';
+            const queries = [];
 
             if (email) {
               queries.push(
@@ -4381,23 +4410,27 @@
               );
             }
 
-            if (!queries.length) {
-              renderTemplateFillList([], new Map());
-              return [];
+            const templateMap = new Map();
+            if (queries.length) {
+              const snapshots = await Promise.all(queries.map(query => query.get()));
+              snapshots.forEach(snapshot => {
+                snapshot.forEach(doc => {
+                  templateMap.set(doc.id, { id: doc.id, ...doc.data() });
+                });
+              });
             }
 
-            const snapshots = await Promise.all(queries.map(query => query.get()));
-            const templateMap = new Map();
-            snapshots.forEach(snapshot => {
-              snapshot.forEach(doc => {
-                templateMap.set(doc.id, { id: doc.id, ...doc.data() });
-              });
+            const supabaseTemplates = await loadSupabaseAssignedTemplates();
+            supabaseTemplates.forEach(template => {
+              if (template && template.id && !templateMap.has(template.id)) {
+                templateMap.set(template.id, template);
+              }
             });
 
             const templates = Array.from(templateMap.values());
             templates.sort((a, b) => {
-              const aTime = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
-              const bTime = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+              const aTime = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : (typeof a.createdAt === 'string' ? Date.parse(a.createdAt) : (typeof a.createdAt === 'number' ? a.createdAt : 0));
+              const bTime = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : (typeof b.createdAt === 'string' ? Date.parse(b.createdAt) : (typeof b.createdAt === 'number' ? b.createdAt : 0));
               return bTime - aTime;
             });
 
@@ -4448,6 +4481,113 @@
             } catch (error) {
               // ignore storage failures
             }
+          }
+
+          async function loadSupabaseAssignedTemplates() {
+            if (!window.supabaseClient || !currentUser) {
+              return [];
+            }
+            const email = currentUser.email ? currentUser.email.toLowerCase() : '';
+            const className = userProfile.className ? userProfile.className.toLowerCase() : '';
+            if (!email && !className) {
+              return [];
+            }
+            const selectFields = [
+              'id',
+              'title',
+              'subject',
+              'subjects',
+              'instructions',
+              'proof_type',
+              'pillar',
+              'pillars',
+              'recipient_type',
+              'recipient_value',
+              'recipient_value_lower',
+              'created_at'
+            ].join(',');
+            const promises = [];
+            if (email) {
+              promises.push(
+                window.supabaseClient
+                  .from('templates')
+                  .select(selectFields)
+                  .eq('recipient_type', 'student')
+                  .eq('recipient_value_lower', email)
+              );
+            }
+            if (className) {
+              promises.push(
+                window.supabaseClient
+                  .from('templates')
+                  .select(selectFields)
+                  .eq('recipient_type', 'class')
+                  .eq('recipient_value_lower', className)
+              );
+            }
+            const results = await Promise.all(promises);
+            const rows = [];
+            for (const result of results) {
+              if (result && result.error) {
+                console.error('Supabase template load error:', result.error);
+                continue;
+              }
+              if (result && Array.isArray(result.data)) {
+                rows.push(...result.data);
+              }
+            }
+            if (!rows.length) {
+              return [];
+            }
+            return rows.map(row => ({
+              id: String(row.id || ''),
+              title: String(row.title || ''),
+              subject: String(row.subject || ''),
+              subjects: Array.isArray(row.subjects) ? row.subjects : (row.subject ? [row.subject] : []),
+              instructions: String(row.instructions || ''),
+              proofType: String(row.proof_type || row.proofType || ''),
+              pillar: String(row.pillar || ''),
+              pillars: Array.isArray(row.pillars) ? row.pillars : (row.pillar ? [row.pillar] : []),
+              recipientType: String(row.recipient_type || row.recipientType || ''),
+              recipientValue: String(row.recipient_value || row.recipientValue || ''),
+              recipientValueLower: String(row.recipient_value_lower || row.recipientValueLower || '').toLowerCase(),
+              createdAt: row.created_at
+            }));
+          }
+
+          function createSupabaseTemplateNotificationChannel(recipientType, recipientValue) {
+            if (!window.supabaseClient || !recipientType || !recipientValue) {
+              return null;
+            }
+            const channelName = `template-notifications-${recipientType}-${recipientValue}`;
+            const channel = window.supabaseClient.channel(channelName);
+            channel.on('postgres_changes', {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'templates',
+              filter: `recipient_type=eq.${recipientType},recipient_value_lower=eq.${recipientValue}`
+            }, payload => {
+              if (!payload || !payload.new) {
+                return;
+              }
+              const row = payload.new;
+              showTemplateNotification({
+                id: String(row.id || ''),
+                title: String(row.title || ''),
+                subject: String(row.subject || ''),
+                subjects: Array.isArray(row.subjects) ? row.subjects : (row.subject ? [row.subject] : []),
+                instructions: String(row.instructions || ''),
+                proofType: String(row.proof_type || row.proofType || ''),
+                pillar: String(row.pillar || ''),
+                pillars: Array.isArray(row.pillars) ? row.pillars : (row.pillar ? [row.pillar] : []),
+                recipientType: String(row.recipient_type || row.recipientType || ''),
+                recipientValue: String(row.recipient_value || row.recipientValue || ''),
+                recipientValueLower: String(row.recipient_value_lower || row.recipientValueLower || '').toLowerCase(),
+                createdAt: row.created_at
+              });
+            });
+            channel.subscribe();
+            return channel;
           }
 
           function addTemplateIdsToSeen(ids) {
@@ -4609,15 +4749,22 @@
           }
 
           function stopTemplateNotificationListeners() {
-            if (!templateNotificationUnsubscribers.length) {
-              return;
+            if (templateNotificationUnsubscribers.length) {
+              templateNotificationUnsubscribers.forEach(unsubscribe => {
+                if (typeof unsubscribe === 'function') {
+                  unsubscribe();
+                }
+              });
+              templateNotificationUnsubscribers = [];
             }
-            templateNotificationUnsubscribers.forEach(unsubscribe => {
-              if (typeof unsubscribe === 'function') {
-                unsubscribe();
-              }
-            });
-            templateNotificationUnsubscribers = [];
+            if (supabaseTemplateChannels.length) {
+              supabaseTemplateChannels.forEach(channel => {
+                if (channel && typeof channel.unsubscribe === 'function') {
+                  channel.unsubscribe();
+                }
+              });
+              supabaseTemplateChannels = [];
+            }
           }
 
           function createTemplateNotificationListener(recipientType, recipientValue) {
@@ -4626,9 +4773,15 @@
               .where('recipientType', '==', recipientType)
               .where('recipientValueLower', '==', recipientValue)
               .onSnapshot(snapshot => {
-                const addedTemplates = snapshot.docChanges()
+                const changes = typeof snapshot.docChanges === 'function'
+                  ? snapshot.docChanges()
+                  : (Array.isArray(snapshot.docs) ? snapshot.docs.map(doc => ({ type: 'added', doc })) : []);
+                const addedTemplates = changes
                   .filter(change => change.type === 'added')
-                  .map(change => ({ id: change.doc.id, ...change.doc.data() }))
+                  .map(change => {
+                    const doc = change.doc || change;
+                    return { id: doc.id, ...doc.data() };
+                  })
                   .filter(template => template && template.id);
 
                 if (!addedTemplates.length) {
@@ -4660,6 +4813,31 @@
             }
             if (className) {
               templateNotificationUnsubscribers.push(createTemplateNotificationListener('class', className));
+            }
+
+            if (window.supabaseClient) {
+              if (email) {
+                const studentChannel = createSupabaseTemplateNotificationChannel('student', email);
+                if (studentChannel) {
+                  supabaseTemplateChannels.push(studentChannel);
+                }
+              }
+              if (className) {
+                const classChannel = createSupabaseTemplateNotificationChannel('class', className);
+                if (classChannel) {
+                  supabaseTemplateChannels.push(classChannel);
+                }
+              }
+              loadSupabaseAssignedTemplates()
+                .then(templates => {
+                  const unseenTemplates = (templates || []).filter(template => template && template.id && !templateNotificationSeen.has(String(template.id)));
+                  if (unseenTemplates.length) {
+                    showTemplateBatchNotification(unseenTemplates);
+                  }
+                })
+                .catch(error => {
+                  console.error('Supabase template notification startup error:', error);
+                });
             }
           }
 
@@ -5970,5 +6148,7 @@
           initGooglePicker();
           window.addEventListener('load', initGoogleAuth);
     </script>
+    <script src="gemini/config.js"></script>
+    <script src="gemini/chat.js"></script>
 </body>
 </html>
