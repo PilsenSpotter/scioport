@@ -1,5 +1,4 @@
 (function () {
-  const STORAGE_KEY = 'scioport-ai-assistant-instructions';
   const MAX_HISTORY = 10;
   const chatHistory = [];
 
@@ -9,7 +8,6 @@
   }
 
   const messagesContainer = panel.querySelector('#ai-chat-messages');
-  const instructionsInput = panel.querySelector('#ai-instructions');
   const userInput = panel.querySelector('#ai-chat-input');
   const sendButton = panel.querySelector('#ai-chat-send');
   const clearButton = panel.querySelector('#ai-chat-clear');
@@ -17,7 +15,6 @@
   const closeButton = panel.querySelector('#ai-chat-close');
   const titleElement = panel.querySelector('#ai-chat-title');
   const introElement = panel.querySelector('#ai-chat-intro');
-  const presetButtons = panel.querySelectorAll('[data-ai-preset]');
   const helpButtons = document.querySelectorAll('[data-ai-help]');
   const defaultTitle = titleElement ? titleElement.textContent : 'Chatbot Gemini Flash 3.5';
   const defaultIntro = introElement ? introElement.textContent : '';
@@ -31,25 +28,6 @@
 
   function getProxyUrl() {
     return String(window.GEMINI_PROXY_URL || '/.netlify/functions/gemini').trim();
-  }
-
-  function getDefaultInstructions() {
-    return String(window.GEMINI_DEFAULT_INSTRUCTIONS || '').trim() ||
-      'Jsi vzdělávací AI chatbot v aplikaci. Odpovídej jasně, vstřícně a srozumitelně.';
-  }
-
-  function saveInstructions() {
-    if (!instructionsInput) {
-      return;
-    }
-    localStorage.setItem(STORAGE_KEY, instructionsInput.value || '');
-  }
-
-  function loadInstructions() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (instructionsInput && saved) {
-      instructionsInput.value = saved;
-    }
   }
 
   function setStatus(message, isError) {
@@ -155,15 +133,6 @@
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
-  function getSystemInstruction() {
-    const systemPrompt = instructionsInput
-      ? String(instructionsInput.value || '').trim() || getDefaultInstructions()
-      : getDefaultInstructions();
-    return {
-      parts: [{ text: systemPrompt }]
-    };
-  }
-
   function getConversationContents() {
     return chatHistory.slice(-MAX_HISTORY).map((entry) => ({
       role: entry.role === 'assistant' ? 'model' : 'user',
@@ -213,7 +182,6 @@
     try {
       const requestBody = {
         model: getModelName(),
-        systemInstruction: getSystemInstruction(),
         contents: getConversationContents(),
         generationConfig: {
           temperature: 0.45,
@@ -274,25 +242,10 @@
     if (messagesContainer) {
       messagesContainer.innerHTML = '';
     }
-    setStatus('Chat vyčištěn. Vlož nové instrukce nebo napiš další zprávu.');
+    setStatus('Chat vyčištěn. Napiš další zprávu.');
   }
 
-  function applyPreset(event) {
-    const button = event.currentTarget;
-    if (!button) {
-      return;
-    }
-    const preset = button.dataset.aiPreset || '';
-    if (!preset) {
-      return;
-    }
-    instructionsInput.value = preset;
-    saveInstructions();
-    setStatus('Instrukce byly aktualizovány.');
-  }
-
-  loadInstructions();
-  setStatus('Vyplň instrukce, potom napiš svoji první zprávu.');
+  setStatus('Napiš svoji první zprávu.');
 
   if (sendButton) {
     sendButton.addEventListener('click', sendUserMessage);
@@ -322,15 +275,6 @@
       }
     });
   }
-
-  if (instructionsInput) {
-    instructionsInput.addEventListener('change', saveInstructions);
-    instructionsInput.addEventListener('input', saveInstructions);
-  }
-
-  presetButtons.forEach(function (button) {
-    button.addEventListener('click', applyPreset);
-  });
 
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape' && !panel.hidden) {

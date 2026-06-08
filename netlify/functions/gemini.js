@@ -1,9 +1,21 @@
+const fs = require('fs');
+const path = require('path');
+
 const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_PROMPT_PROFILE = 'sciocile';
 const ALLOWED_MODELS = new Set([
   'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
   'gemini-2.0-flash'
 ]);
+const ALLOWED_PROMPT_PROFILES = new Set(['sciocile', 'general']);
+const APP_RUNTIME_GUARDRAILS = [
+  'Důležité pro tuto integraci:',
+  '- Nemáš k dispozici interní nástroje zmíněné v promptu, například learnSkill, get_sck_context, search_curriculum ani get_curriculum_detail.',
+  '- Nikdy nepředstírej volání nedostupného nástroje.',
+  '- Pokud by prompt vyžadoval nedostupný nástroj, odpověz podle dostupného kontextu a jasně řekni, že detailní databázový zdroj v této integraci není připojený.'
+].join('\n');
+const promptCache = new Map();
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -38,6 +50,32 @@ function getSecret(name) {
   }
 
   return '';
+}
+
+function getPromptProfile() {
+  const requested = getSecret('SCIOCHAT_PROMPT_PROFILE').toLowerCase();
+  if (requested && ALLOWED_PROMPT_PROFILES.has(requested)) {
+    return requested;
+  }
+  return DEFAULT_PROMPT_PROFILE;
+}
+
+function readPrompt(profile) {
+  if (promptCache.has(profile)) {
+    return promptCache.get(profile);
+  }
+
+  const promptPath = path.join(__dirname, 'prompts', `${profile}.txt`);
+  const prompt = fs.readFileSync(promptPath, 'utf8').trim();
+  promptCache.set(profile, prompt);
+  return prompt;
+}
+
+function getSystemInstruction() {
+  const prompt = readPrompt(getPromptProfile());
+  return {
+    parts: [{ text: `${APP_RUNTIME_GUARDRAILS}\n\n${prompt}` }]
+  };
 }
 
 function getNumber(value, fallback, min, max) {
@@ -94,12 +132,9 @@ exports.handler = async function handler(event) {
   const model = getModel(payload.model);
   const requestBody = {
     contents,
+    systemInstruction: getSystemInstruction(),
     generationConfig: getGenerationConfig(payload.generationConfig)
   };
-
-  if (payload.systemInstruction && typeof payload.systemInstruction === 'object') {
-    requestBody.systemInstruction = payload.systemInstruction;
-  }
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 

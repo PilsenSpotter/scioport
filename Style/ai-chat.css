@@ -68,13 +68,11 @@
   color: var(--text);
 }
 
-.ai-chat-settings,
 .ai-chat-compose {
   display: grid;
   gap: 12px;
 }
 
-#ai-instructions,
 #ai-chat-input {
   width: 100%;
   min-height: 90px;
@@ -87,13 +85,6 @@
   resize: vertical;
 }
 
-.ai-chat-presets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.ai-chat-presets button,
 .ai-chat-controls button {
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -104,7 +95,6 @@
   transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.ai-chat-presets button:hover,
 .ai-chat-controls button:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
