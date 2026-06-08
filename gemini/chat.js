@@ -107,6 +107,130 @@
     }
   }
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeAttribute(value) {
+    return escapeHtml(value).replace(/`/g, '&#96;');
+  }
+
+  function getSafeUrl(value) {
+    const url = String(value || '').trim();
+    if (/^(https?:|mailto:)/i.test(url)) {
+      return url;
+    }
+    return '';
+  }
+
+  function renderInlineStyles(value) {
+    return escapeHtml(value)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+      .replace(/_([^_\n]+)_/g, '<em>$1</em>');
+  }
+
+  function renderLinks(value) {
+    const text = String(value || '');
+    const linkPattern = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+    let html = '';
+    let lastIndex = 0;
+    let match = linkPattern.exec(text);
+
+    while (match) {
+      html += renderInlineStyles(text.slice(lastIndex, match.index));
+      const url = getSafeUrl(match[2]);
+      if (url) {
+        html += `<a href="${escapeAttribute(url)}" target="_blank" rel="noopener noreferrer">${renderInlineStyles(match[1])}</a>`;
+      } else {
+        html += renderInlineStyles(match[0]);
+      }
+      lastIndex = linkPattern.lastIndex;
+      match = linkPattern.exec(text);
+    }
+
+    html += renderInlineStyles(text.slice(lastIndex));
+    return html;
+  }
+
+  function renderInlineMarkdown(value) {
+    const text = String(value || '');
+    const codePattern = /`([^`]+)`/g;
+    let html = '';
+    let lastIndex = 0;
+    let match = codePattern.exec(text);
+
+    while (match) {
+      html += renderLinks(text.slice(lastIndex, match.index));
+      html += `<code>${escapeHtml(match[1])}</code>`;
+      lastIndex = codePattern.lastIndex;
+      match = codePattern.exec(text);
+    }
+
+    html += renderLinks(text.slice(lastIndex));
+    return html;
+  }
+
+  function renderMarkdown(text) {
+    const lines = String(text || '').replace(/\r\n/g, '\n').split('\n');
+    const html = [];
+    let listType = '';
+    let paragraph = [];
+
+    function flushParagraph() {
+      if (!paragraph.length) {
+        return;
+      }
+      html.push(`<p>${renderInlineMarkdown(paragraph.join(' '))}</p>`);
+      paragraph = [];
+    }
+
+    function closeList() {
+      if (!listType) {
+        return;
+      }
+      html.push(`</${listType}>`);
+      listType = '';
+    }
+
+    lines.forEach(function (line) {
+      const trimmed = line.trim();
+      const unordered = /^[-*]\s+(.+)$/.exec(trimmed);
+      const ordered = /^\d+[.)]\s+(.+)$/.exec(trimmed);
+
+      if (!trimmed) {
+        flushParagraph();
+        closeList();
+        return;
+      }
+
+      if (unordered || ordered) {
+        const nextListType = unordered ? 'ul' : 'ol';
+        flushParagraph();
+        if (listType !== nextListType) {
+          closeList();
+          html.push(`<${nextListType}>`);
+          listType = nextListType;
+        }
+        html.push(`<li>${renderInlineMarkdown((unordered || ordered)[1])}</li>`);
+        return;
+      }
+
+      closeList();
+      paragraph.push(trimmed);
+    });
+
+    flushParagraph();
+    closeList();
+    return html.join('');
+  }
+
   function createMessageElement(role, text) {
     const wrapper = document.createElement('div');
     wrapper.className = `ai-chat-message ai-chat-message--${role}`;
@@ -117,7 +241,11 @@
 
     const bubble = document.createElement('div');
     bubble.className = 'ai-chat-message-bubble';
-    bubble.textContent = text;
+    if (role === 'assistant') {
+      bubble.innerHTML = renderMarkdown(text);
+    } else {
+      bubble.textContent = text;
+    }
 
     wrapper.appendChild(egg);
     wrapper.appendChild(bubble);
