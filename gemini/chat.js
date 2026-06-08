@@ -161,6 +161,9 @@
     if (/requests to this api .* are blocked/i.test(message) || /api[_ -]?key.*blocked/i.test(message)) {
       return 'Serverový Gemini API klíč je zablokovaný nebo nemá povolenou Generative Language API. Vyměň ho v nastavení environment variables na hostingu.';
     }
+    if (/high demand|temporarily overloaded|503/i.test(message)) {
+      return 'Gemini je teď dočasně přetížený. Aplikace zkouší záložní modely, ale pokud chyba zůstane, zkus to prosím za chvíli znovu.';
+    }
     return `Chyba Gemini: ${message}`;
   }
 

@@ -3,11 +3,12 @@ const path = require('path');
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const DEFAULT_PROMPT_PROFILE = 'sciocile';
-const ALLOWED_MODELS = new Set([
+const MODEL_FALLBACKS = [
   'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
   'gemini-2.0-flash'
-]);
+];
+const ALLOWED_MODELS = new Set(MODEL_FALLBACKS);
 const ALLOWED_PROMPT_PROFILES = new Set(['sciocile', 'general']);
 const APP_RUNTIME_GUARDRAILS = [
   'Dulezite pro tuto integraci:',
@@ -94,7 +95,21 @@ function getModel(value) {
   if (requested && ALLOWED_MODELS.has(requested)) {
     return requested;
   }
-  return String(process.env.GEMINI_MODEL_NAME || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+
+  const configured = String(process.env.GEMINI_MODEL_NAME || '').trim();
+  if (configured && ALLOWED_MODELS.has(configured)) {
+    return configured;
+  }
+
+  return DEFAULT_MODEL;
+}
+
+function getModelFallbacks(primaryModel) {
+  const primary = ALLOWED_MODELS.has(primaryModel) ? primaryModel : DEFAULT_MODEL;
+  return [
+    primary,
+    ...MODEL_FALLBACKS.filter((model) => model !== primary)
+  ];
 }
 
 function getSecret(name) {
@@ -192,6 +207,10 @@ async function callGemini(endpoint, apiKey, body) {
     ok: true,
     body: responseBody
   };
+}
+
+function isRetryableModelError(result) {
+  return [429, 502, 503, 504].includes(Number(result && result.status));
 }
 
 function getModelContent(responseBody) {
@@ -397,6 +416,97 @@ function stripPseudoToolCode(text) {
     .trim();
 }
 
+async function generateWithModel(model, apiKey, baseRequestBody, contents) {
+  const conversationContents = contents.slice();
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  let lastBody = null;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const gemini = await callGemini(endpoint, apiKey, {
+      ...baseRequestBody,
+      contents: conversationContents
+    });
+
+    if (!gemini.ok) {
+      return {
+        ok: false,
+        status: gemini.status,
+        error: gemini.error,
+        retryable: isRetryableModelError(gemini)
+      };
+    }
+
+    lastBody = gemini.body;
+    const calls = getFunctionCalls(lastBody);
+    const clarificationCall = getClarificationCall(calls);
+
+    if (clarificationCall) {
+      const questions = normalizeClarificationQuestions(clarificationCall.args);
+      return {
+        ok: true,
+        body: buildTextResponse(buildClarificationText(questions)),
+        model
+      };
+    }
+
+    if (calls.length) {
+      const modelContent = getModelContent(lastBody);
+      if (modelContent) {
+        conversationContents.push(modelContent);
+      }
+      conversationContents.push({
+        role: 'user',
+        parts: buildToolResponseParts(calls)
+      });
+      continue;
+    }
+
+    const responseText = getResponseText(lastBody);
+    const pseudoCalls = getPseudoToolCalls(responseText);
+    if (pseudoCalls.length) {
+      conversationContents.push({
+        role: 'user',
+        parts: [
+          {
+            text: [
+              'Runtime handled the pseudo tool call instead of showing it to the user.',
+              `Tool results: ${JSON.stringify(pseudoCalls.map((call) => runTool(call)))}`,
+              'Now produce only the user-facing answer in Czech. Do not mention <tool_code>, print(...), or tool calls.'
+            ].join('\n')
+          }
+        ]
+      });
+      continue;
+    }
+
+    if (hasPseudoToolCode(responseText)) {
+      const visibleText = stripPseudoToolCode(responseText);
+      return {
+        ok: true,
+        body: buildTextResponse(
+          visibleText || 'Potrebuju si to nejdriv upresnit. Napis mi prosim trochu vic kontextu.'
+        ),
+        model
+      };
+    }
+
+    return {
+      ok: true,
+      body: lastBody,
+      model
+    };
+  }
+
+  const finalText = stripPseudoToolCode(getResponseText(lastBody));
+  return {
+    ok: true,
+    body: buildTextResponse(
+      finalText || 'Potrebuju si to nejdriv upresnit. Napis mi prosim trochu vic kontextu.'
+    ),
+    model
+  };
+}
+
 exports.handler = async function handler(event) {
   if (event.httpMethod === 'OPTIONS') {
     return {
@@ -435,75 +545,27 @@ exports.handler = async function handler(event) {
     generationConfig: getGenerationConfig(payload.generationConfig),
     tools: TOOL_DECLARATIONS
   };
-  const conversationContents = contents.slice();
-
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
   try {
-    let lastBody = null;
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const gemini = await callGemini(endpoint, apiKey, {
-        ...baseRequestBody,
-        contents: conversationContents
-      });
-
-      if (!gemini.ok) {
-        return jsonResponse(gemini.status, { error: gemini.error });
+    let lastFailure = null;
+    const fallbackModels = getModelFallbacks(model);
+    for (const nextModel of fallbackModels) {
+      const result = await generateWithModel(nextModel, apiKey, baseRequestBody, contents);
+      if (result.ok) {
+        return jsonResponse(200, result.body);
       }
 
-      lastBody = gemini.body;
-      const calls = getFunctionCalls(lastBody);
-      const clarificationCall = getClarificationCall(calls);
-
-      if (clarificationCall) {
-        const questions = normalizeClarificationQuestions(clarificationCall.args);
-        return jsonResponse(200, buildTextResponse(buildClarificationText(questions)));
+      lastFailure = result;
+      if (!result.retryable) {
+        return jsonResponse(result.status, { error: result.error });
       }
-
-      if (calls.length) {
-        const modelContent = getModelContent(lastBody);
-        if (modelContent) {
-          conversationContents.push(modelContent);
-        }
-        conversationContents.push({
-          role: 'user',
-          parts: buildToolResponseParts(calls)
-        });
-        continue;
-      }
-
-      const responseText = getResponseText(lastBody);
-      const pseudoCalls = getPseudoToolCalls(responseText);
-      if (pseudoCalls.length) {
-        conversationContents.push({
-          role: 'user',
-          parts: [
-            {
-              text: [
-                'Runtime handled the pseudo tool call instead of showing it to the user.',
-                `Tool results: ${JSON.stringify(pseudoCalls.map((call) => runTool(call)))}`,
-                'Now produce only the user-facing answer in Czech. Do not mention <tool_code>, print(...), or tool calls.'
-              ].join('\n')
-            }
-          ]
-        });
-        continue;
-      }
-
-      if (hasPseudoToolCode(responseText)) {
-        const visibleText = stripPseudoToolCode(responseText);
-        return jsonResponse(200, buildTextResponse(
-          visibleText || 'Potrebuju si to nejdriv upresnit. Napis mi prosim trochu vic kontextu.'
-        ));
-      }
-
-      return jsonResponse(200, lastBody);
     }
 
-    const finalText = stripPseudoToolCode(getResponseText(lastBody));
-    return jsonResponse(200, buildTextResponse(
-      finalText || 'Potrebuju si to nejdriv upresnit. Napis mi prosim trochu vic kontextu.'
-    ));
+    return jsonResponse(lastFailure ? lastFailure.status : 503, {
+      error: lastFailure && lastFailure.error
+        ? lastFailure.error
+        : 'Gemini models are temporarily overloaded. Please try again shortly.'
+    });
   } catch (error) {
     return jsonResponse(502, { error: String(error && error.message ? error.message : error) });
   }
