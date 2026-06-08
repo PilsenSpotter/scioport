@@ -30,7 +30,7 @@
   }
 
   function getModelName() {
-    return String(window.GEMINI_MODEL_NAME || 'gemini-3.5-flash').trim();
+    return String(window.GEMINI_MODEL_NAME || 'gemini-2.5-flash').trim();
   }
 
   function getDefaultInstructions() {
@@ -39,12 +39,8 @@
   }
 
   function buildApiUrl() {
-    const apiKey = getApiKey();
     const modelName = getModelName();
-    if (!apiKey) {
-      return null;
-    }
-    return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent`;
   }
 
   function saveInstructions() {
@@ -196,6 +192,14 @@
     return '';
   }
 
+  function getFriendlyErrorMessage(error) {
+    const message = String(error && error.message ? error.message : error || '');
+    if (/requests to this api .* are blocked/i.test(message) || /api[_ -]?key.*blocked/i.test(message)) {
+      return 'API klíč pro Gemini je zablokovaný nebo nemá povolenou Generative Language API. Vytvoř nový klíč v Google AI Studio nebo v Google Cloud povol tomuto klíči službu Generative Language API.';
+    }
+    return `Chyba Gemini: ${message}`;
+  }
+
   async function sendUserMessage() {
     if (!userInput || !userInput.value.trim()) {
       setStatus('Napiš prosím zprávu.', true);
@@ -211,14 +215,15 @@
     sendButton.disabled = true;
     clearButton.disabled = true;
 
-    const endpoint = buildApiUrl();
-    if (!endpoint) {
+    const apiKey = getApiKey();
+    if (!apiKey) {
       setStatus('Není nastaven Gemini API klíč v souboru gemini/config.js.', true);
       userInput.disabled = false;
       sendButton.disabled = false;
       clearButton.disabled = false;
       return;
     }
+    const endpoint = buildApiUrl();
 
     try {
       const requestBody = {
@@ -236,7 +241,8 @@
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
         },
         body: JSON.stringify(requestBody)
       });
@@ -266,7 +272,7 @@
       setStatus('Odpověď přijata. Můžeš pokračovat další otázkou.');
     } catch (error) {
       appendMessage('assistant', 'Omlouvám se, nastala chyba při volání Gemini.');
-      setStatus(`Chyba Gemini: ${String(error.message || error)}`, true);
+      setStatus(getFriendlyErrorMessage(error), true);
       console.error(error);
     } finally {
       userInput.disabled = false;
