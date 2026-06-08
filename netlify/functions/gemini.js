@@ -23,6 +23,23 @@ function getModel(value) {
   return String(process.env.GEMINI_MODEL_NAME || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 }
 
+function getSecret(name) {
+  const processValue = String(process.env[name] || '').trim();
+  if (processValue) {
+    return processValue;
+  }
+
+  if (
+    typeof Netlify !== 'undefined'
+    && Netlify.env
+    && typeof Netlify.env.get === 'function'
+  ) {
+    return String(Netlify.env.get(name) || '').trim();
+  }
+
+  return '';
+}
+
 function getNumber(value, fallback, min, max) {
   const next = Number(value);
   if (!Number.isFinite(next)) {
@@ -57,7 +74,7 @@ exports.handler = async function handler(event) {
     return jsonResponse(405, { error: 'Method not allowed.' });
   }
 
-  const apiKey = String(process.env.GEMINI_API_KEY || '').trim();
+  const apiKey = getSecret('GEMINI_API_KEY');
   if (!apiKey) {
     return jsonResponse(500, { error: 'Gemini API key is not configured on the server.' });
   }
