@@ -1,5 +1,6 @@
 (function () {
   const STORAGE_KEY = 'scioport-ai-assistant-instructions';
+  const CONFIG_URL = 'gemini/config.js';
   const MAX_HISTORY = 10;
   const chatHistory = [];
 
@@ -27,6 +28,27 @@
 
   function getApiKey() {
     return String(window.GEMINI_API_KEY || '').trim();
+  }
+
+  async function reloadApiKeyFromConfig() {
+    try {
+      const url = new URL(CONFIG_URL, window.location.href);
+      url.searchParams.set('v', String(Date.now()));
+      const response = await fetch(url.toString(), { cache: 'no-store' });
+      if (!response.ok) {
+        return '';
+      }
+      const configText = await response.text();
+      const match = configText.match(/GEMINI_API_KEY\s*=\s*(['"`])([\s\S]*?)\1/);
+      if (!match || !match[2]) {
+        return '';
+      }
+      window.GEMINI_API_KEY = match[2].trim();
+      return getApiKey();
+    } catch (error) {
+      console.warn('Gemini config reload failed:', error);
+      return '';
+    }
   }
 
   function getModelName() {
@@ -215,9 +237,12 @@
     sendButton.disabled = true;
     clearButton.disabled = true;
 
-    const apiKey = getApiKey();
+    let apiKey = getApiKey();
     if (!apiKey) {
-      setStatus('Není nastaven Gemini API klíč v souboru gemini/config.js.', true);
+      apiKey = await reloadApiKeyFromConfig();
+    }
+    if (!apiKey) {
+      setStatus('Gemini API klíč není dostupný v prohlížeči. Zkontroluj, že se načetl soubor gemini/config.js, potom obnov stránku přes Ctrl+F5.', true);
       userInput.disabled = false;
       sendButton.disabled = false;
       clearButton.disabled = false;
