@@ -6342,3 +6342,89 @@ body.theme-dark .student-work-post-head h3 {
         animation: none !important;
     }
 }
+
+.student-work-action-wrap,
+.student-work-avatar-action-wrap {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: max-content;
+}
+
+.student-work-avatar-action-wrap {
+    flex: 0 0 auto;
+}
+
+.student-work-ai-help {
+    position: absolute;
+    right: -12px;
+    bottom: -12px;
+    z-index: 10;
+    width: 30px;
+    height: 30px;
+    border: 2px solid rgba(255, 255, 255, 0.92);
+    border-radius: 50%;
+    background: #111827;
+    color: #ffffff;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.24);
+    display: grid;
+    place-items: center;
+    padding: 0;
+    font-family: 'Scio', sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        transform 0.16s ease,
+        box-shadow 0.16s ease,
+        background 0.16s ease,
+        opacity 0.16s ease;
+}
+
+.student-work-ai-help:hover,
+.student-work-ai-help:focus-visible {
+    background: #2563eb;
+    box-shadow: 0 10px 22px rgba(37, 99, 235, 0.32);
+    transform: translateY(-2px);
+}
+
+.student-work-ai-help:focus-visible {
+    outline: 3px solid rgba(147, 197, 253, 0.95);
+    outline-offset: 2px;
+}
+
+.student-work-avatar-action-wrap .student-work-ai-help {
+    right: -8px;
+    bottom: -8px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .student-work-orbit .student-work-ai-help {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(8px) scale(0.9);
+    }
+
+    .student-work-orbit:hover .student-work-ai-help,
+    .student-work-orbit:focus-within .student-work-ai-help {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (max-width: 800px) {
+    .student-work-ai-help {
+        width: 28px;
+        height: 28px;
+        right: -10px;
+        bottom: -10px;
+        font-size: 0.95rem;
+    }
+
+    .student-work-avatar-action-wrap .student-work-ai-help {
+        right: -6px;
+        bottom: -6px;
+    }
+}

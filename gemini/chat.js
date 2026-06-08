@@ -14,7 +14,16 @@
   const sendButton = panel.querySelector('#ai-chat-send');
   const clearButton = panel.querySelector('#ai-chat-clear');
   const statusElement = panel.querySelector('#ai-chat-status');
+  const closeButton = panel.querySelector('#ai-chat-close');
+  const titleElement = panel.querySelector('#ai-chat-title');
+  const introElement = panel.querySelector('#ai-chat-intro');
   const presetButtons = panel.querySelectorAll('[data-ai-preset]');
+  const helpButtons = document.querySelectorAll('[data-ai-help]');
+  const defaultTitle = titleElement ? titleElement.textContent : 'Chatbot Gemini Flash 3.5';
+  const defaultIntro = introElement ? introElement.textContent : '';
+  const defaultInputPlaceholder = userInput ? (userInput.getAttribute('placeholder') || '') : '';
+  let activeHelpButton = null;
+  let lastHelpPrompt = '';
 
   function getApiKey() {
     return String(window.GEMINI_API_KEY || '').trim();
@@ -58,6 +67,75 @@
     }
     statusElement.textContent = message || '';
     statusElement.classList.toggle('ai-chat-status-error', Boolean(isError));
+  }
+
+  function syncHelpButtonState(isOpen) {
+    helpButtons.forEach(function (button) {
+      const isActive = Boolean(isOpen && button === activeHelpButton);
+      button.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+    });
+  }
+
+  function setPanelOpen(isOpen, sourceButton) {
+    activeHelpButton = isOpen ? (sourceButton || activeHelpButton) : null;
+    panel.hidden = !isOpen;
+    panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    panel.classList.toggle('is-open', Boolean(isOpen));
+    syncHelpButtonState(isOpen);
+  }
+
+  function openPanelFromHelp(button) {
+    const context = String(button && button.dataset ? button.dataset.aiContext || '' : '').trim();
+    const prompt = String(button && button.dataset ? button.dataset.aiPrompt || '' : '').trim();
+
+    setPanelOpen(true, button);
+
+    if (titleElement) {
+      titleElement.textContent = context ? `AI průvodce: ${context}` : defaultTitle;
+    }
+
+    if (introElement) {
+      introElement.textContent = context
+        ? `Zeptej se AI na pomoc k tlacitku "${context}". Otazku muzes hned odeslat nebo prepsat.`
+        : defaultIntro;
+    }
+
+    if (userInput) {
+      userInput.setAttribute('placeholder', prompt || defaultInputPlaceholder);
+      const currentValue = userInput.value.trim();
+      if (prompt && (!currentValue || currentValue === lastHelpPrompt)) {
+        userInput.value = prompt;
+      }
+    }
+    lastHelpPrompt = prompt;
+
+    setStatus(context ? `AI napoveda otevrena pro: ${context}.` : 'AI napoveda otevrena.');
+
+    requestAnimationFrame(function () {
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (userInput) {
+        userInput.focus();
+        if (userInput.value.trim()) {
+          userInput.select();
+        }
+      }
+    });
+  }
+
+  function closePanel() {
+    setPanelOpen(false);
+
+    if (titleElement) {
+      titleElement.textContent = defaultTitle;
+    }
+
+    if (introElement) {
+      introElement.textContent = defaultIntro;
+    }
+
+    if (userInput) {
+      userInput.setAttribute('placeholder', defaultInputPlaceholder);
+    }
   }
 
   function createMessageElement(role, text) {
@@ -226,6 +304,18 @@
     clearButton.addEventListener('click', clearChat);
   }
 
+  if (closeButton) {
+    closeButton.addEventListener('click', closePanel);
+  }
+
+  helpButtons.forEach(function (button) {
+    button.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      openPanelFromHelp(button);
+    });
+  });
+
   if (userInput) {
     userInput.addEventListener('keydown', function (event) {
       if (event.key === 'Enter' && !event.shiftKey) {
@@ -242,5 +332,11 @@
 
   presetButtons.forEach(function (button) {
     button.addEventListener('click', applyPreset);
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && !panel.hidden) {
+      closePanel();
+    }
   });
 })();
