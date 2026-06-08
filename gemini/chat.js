@@ -1,6 +1,5 @@
 (function () {
   const STORAGE_KEY = 'scioport-ai-assistant-instructions';
-  const CONFIG_URL = 'gemini/config.js';
   const MAX_HISTORY = 10;
   const chatHistory = [];
 
@@ -26,43 +25,17 @@
   let activeHelpButton = null;
   let lastHelpPrompt = '';
 
-  function getApiKey() {
-    return String(window.GEMINI_API_KEY || '').trim();
-  }
-
-  async function reloadApiKeyFromConfig() {
-    try {
-      const url = new URL(CONFIG_URL, window.location.href);
-      url.searchParams.set('v', String(Date.now()));
-      const response = await fetch(url.toString(), { cache: 'no-store' });
-      if (!response.ok) {
-        return '';
-      }
-      const configText = await response.text();
-      const match = configText.match(/GEMINI_API_KEY\s*=\s*(['"`])([\s\S]*?)\1/);
-      if (!match || !match[2]) {
-        return '';
-      }
-      window.GEMINI_API_KEY = match[2].trim();
-      return getApiKey();
-    } catch (error) {
-      console.warn('Gemini config reload failed:', error);
-      return '';
-    }
-  }
-
   function getModelName() {
     return String(window.GEMINI_MODEL_NAME || 'gemini-2.5-flash').trim();
+  }
+
+  function getProxyUrl() {
+    return String(window.GEMINI_PROXY_URL || '/.netlify/functions/gemini').trim();
   }
 
   function getDefaultInstructions() {
     return String(window.GEMINI_DEFAULT_INSTRUCTIONS || '').trim() ||
       'Jsi vzdělávací AI chatbot v aplikaci. Odpovídej jasně, vstřícně a srozumitelně.';
-  }
-
-  function buildApiUrl() {
-    const modelName = getModelName();
-    return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelName)}:generateContent`;
   }
 
   function saveInstructions() {
@@ -217,7 +190,7 @@
   function getFriendlyErrorMessage(error) {
     const message = String(error && error.message ? error.message : error || '');
     if (/requests to this api .* are blocked/i.test(message) || /api[_ -]?key.*blocked/i.test(message)) {
-      return 'API klíč pro Gemini je zablokovaný nebo nemá povolenou Generative Language API. Vytvoř nový klíč v Google AI Studio nebo v Google Cloud povol tomuto klíči službu Generative Language API.';
+      return 'Serverový Gemini API klíč je zablokovaný nebo nemá povolenou Generative Language API. Vyměň ho v nastavení environment variables na hostingu.';
     }
     return `Chyba Gemini: ${message}`;
   }
@@ -237,21 +210,9 @@
     sendButton.disabled = true;
     clearButton.disabled = true;
 
-    let apiKey = getApiKey();
-    if (!apiKey) {
-      apiKey = await reloadApiKeyFromConfig();
-    }
-    if (!apiKey) {
-      setStatus('Gemini API klíč není dostupný v prohlížeči. Zkontroluj, že se načetl soubor gemini/config.js, potom obnov stránku přes Ctrl+F5.', true);
-      userInput.disabled = false;
-      sendButton.disabled = false;
-      clearButton.disabled = false;
-      return;
-    }
-    const endpoint = buildApiUrl();
-
     try {
       const requestBody = {
+        model: getModelName(),
         systemInstruction: getSystemInstruction(),
         contents: getConversationContents(),
         generationConfig: {
@@ -263,11 +224,10 @@
         }
       };
 
-      const response = await fetch(endpoint, {
+      const response = await fetch(getProxyUrl(), {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestBody)
       });
@@ -277,9 +237,11 @@
         let message = errorText || `${response.status} ${response.statusText}`;
         try {
           const parsed = JSON.parse(errorText);
-          message = parsed && parsed.error && parsed.error.message
-            ? parsed.error.message
-            : message;
+          if (parsed && parsed.error && parsed.error.message) {
+            message = parsed.error.message;
+          } else if (parsed && typeof parsed.error === 'string') {
+            message = parsed.error;
+          }
         } catch (_) {
           // Keep the raw response text.
         }
