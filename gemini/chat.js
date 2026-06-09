@@ -1,5 +1,7 @@
 (function () {
   const MAX_HISTORY = 10;
+  const MAX_STORED_HISTORY = 60;
+  const CHAT_HISTORY_STORAGE_KEY = 'scioport.aiChat.history.v1';
   const chatHistory = [];
 
   const panel = document.getElementById('ai-chat-panel');
@@ -34,6 +36,62 @@
 
   function getProxyUrl() {
     return String(window.GEMINI_PROXY_URL || '/.netlify/functions/gemini').trim();
+  }
+
+  function normalizeHistoryEntry(entry) {
+    if (!entry || typeof entry !== 'object') {
+      return null;
+    }
+
+    const role = entry.role === 'assistant' ? 'assistant' : entry.role === 'user' ? 'user' : '';
+    const content = String(entry.content || '').trim();
+    if (!role || !content) {
+      return null;
+    }
+
+    return { role, content };
+  }
+
+  function trimChatHistory() {
+    if (chatHistory.length > MAX_STORED_HISTORY) {
+      chatHistory.splice(0, chatHistory.length - MAX_STORED_HISTORY);
+    }
+  }
+
+  function loadStoredChatHistory() {
+    try {
+      const raw = window.localStorage.getItem(CHAT_HISTORY_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      return parsed
+        .map(normalizeHistoryEntry)
+        .filter(Boolean)
+        .slice(-MAX_STORED_HISTORY);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveChatHistory() {
+    try {
+      trimChatHistory();
+      window.localStorage.setItem(CHAT_HISTORY_STORAGE_KEY, JSON.stringify(chatHistory));
+    } catch (error) {
+      // Local history is best-effort only.
+    }
+  }
+
+  function addHistoryEntry(role, content) {
+    const entry = normalizeHistoryEntry({ role, content });
+    if (!entry) {
+      return;
+    }
+
+    chatHistory.push(entry);
+    saveChatHistory();
   }
 
   function setStatus(message, isError) {
@@ -270,6 +328,19 @@
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
+  function restoreChatHistory() {
+    const storedHistory = loadStoredChatHistory();
+    if (!storedHistory.length) {
+      return false;
+    }
+
+    storedHistory.forEach(function (entry) {
+      chatHistory.push(entry);
+      appendMessage(entry.role, entry.content);
+    });
+    return true;
+  }
+
   function getConversationContents() {
     return chatHistory.slice(-MAX_HISTORY).map((entry) => ({
       role: entry.role === 'assistant' ? 'model' : 'user',
@@ -313,7 +384,7 @@
     const userText = userInput.value.trim();
     userInput.value = '';
     appendMessage('user', userText);
-    chatHistory.push({ role: 'user', content: userText });
+    addHistoryEntry('user', userText);
     setStatus('Odesílám dotaz do Gemini...');
     userInput.disabled = true;
     sendButton.disabled = true;
@@ -363,7 +434,7 @@
       }
 
       appendMessage('assistant', assistantText);
-      chatHistory.push({ role: 'assistant', content: assistantText });
+      addHistoryEntry('assistant', assistantText);
       setStatus('Odpověď přijata. Můžeš pokračovat další otázkou.');
     } catch (error) {
       appendMessage('assistant', 'Omlouvám se, nastala chyba při volání Gemini.');
@@ -382,10 +453,16 @@
     if (messagesContainer) {
       messagesContainer.innerHTML = '';
     }
+    try {
+      window.localStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
+    } catch (error) {
+      // Local history is best-effort only.
+    }
     setStatus('Chat vyčištěn. Napiš další zprávu.');
   }
 
-  setStatus('Napiš svoji první zprávu.');
+  const hasStoredHistory = restoreChatHistory();
+  setStatus(hasStoredHistory ? 'Historie chatu nactena.' : 'Napiš svoji první zprávu.');
 
   if (sendButton) {
     sendButton.addEventListener('click', sendUserMessage);

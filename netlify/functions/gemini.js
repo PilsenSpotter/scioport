@@ -2,14 +2,13 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
-const DEFAULT_PROMPT_PROFILE = 'sciocile';
+const FIXED_PROMPT_PROFILE = 'sciocile';
 const MODEL_FALLBACKS = [
   'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
   'gemini-2.0-flash'
 ];
 const ALLOWED_MODELS = new Set(MODEL_FALLBACKS);
-const ALLOWED_PROMPT_PROFILES = new Set(['sciocile', 'general']);
 const APP_RUNTIME_GUARDRAILS = [
   'Dulezite pro tuto integraci:',
   '- Interni nastroje learnSkill a askClarificationQuestions jsou v teto integraci pripojene pres Gemini function calling.',
@@ -129,14 +128,6 @@ function getSecret(name) {
   return '';
 }
 
-function getPromptProfile() {
-  const requested = getSecret('SCIOCHAT_PROMPT_PROFILE').toLowerCase();
-  if (requested && ALLOWED_PROMPT_PROFILES.has(requested)) {
-    return requested;
-  }
-  return DEFAULT_PROMPT_PROFILE;
-}
-
 function readPrompt(profile) {
   if (promptCache.has(profile)) {
     return promptCache.get(profile);
@@ -149,7 +140,7 @@ function readPrompt(profile) {
 }
 
 function getSystemInstruction() {
-  const prompt = readPrompt(getPromptProfile());
+  const prompt = readPrompt(FIXED_PROMPT_PROFILE);
   return {
     parts: [{ text: `${APP_RUNTIME_GUARDRAILS}\n\n${prompt}` }]
   };
