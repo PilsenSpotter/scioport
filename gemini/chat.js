@@ -7,6 +7,12 @@
     return;
   }
 
+  const studentWork = document.getElementById('student-work');
+  const avatarCenter = document.querySelector('.student-work-center');
+  if (avatarCenter && !avatarCenter.contains(panel)) {
+    avatarCenter.appendChild(panel);
+  }
+
   const messagesContainer = panel.querySelector('#ai-chat-messages');
   const userInput = panel.querySelector('#ai-chat-input');
   const sendButton = panel.querySelector('#ai-chat-send');
@@ -50,6 +56,9 @@
     panel.hidden = !isOpen;
     panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     panel.classList.toggle('is-open', Boolean(isOpen));
+    if (studentWork) {
+      studentWork.classList.toggle('is-ai-open', Boolean(isOpen));
+    }
     syncHelpButtonState(isOpen);
   }
 

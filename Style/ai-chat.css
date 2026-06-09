@@ -12,6 +12,44 @@
   display: none;
 }
 
+.student-work .student-work-center {
+  width: 100%;
+}
+
+.student-work .student-work-center > .student-work-illustration,
+.student-work .student-work-center > .student-work-boy-illustration,
+.student-work .student-work-center > .ai-chat-panel {
+  grid-area: 1 / 1;
+}
+
+.student-work .student-work-center > .ai-chat-panel {
+  width: min(440px, 86vw);
+  max-width: 100%;
+  margin: 0;
+  align-self: center;
+  justify-self: center;
+  z-index: 8;
+}
+
+.student-work .student-work-center > .ai-chat-panel .ai-chat-messages {
+  min-height: 190px;
+  max-height: 260px;
+}
+
+.student-work.is-ai-open .portfolio-girl-illustration,
+.student-work.is-ai-open .student-work-boy-illustration {
+  opacity: 0;
+  transform: translateY(10px) scale(0.96);
+  pointer-events: none;
+}
+
+.student-work.is-ai-open .student-work-ai-help {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(8px);
+}
+
 .ai-chat-shell {
   display: grid;
   gap: 14px;
@@ -237,6 +275,15 @@
 }
 
 @media (max-width: 720px) {
+  .student-work .student-work-center > .ai-chat-panel {
+    width: min(430px, 92vw);
+  }
+
+  .student-work .student-work-center > .ai-chat-panel .ai-chat-messages {
+    min-height: 180px;
+    max-height: 240px;
+  }
+
   .ai-chat-panel {
     padding: 12px;
     border-radius: 24px;
