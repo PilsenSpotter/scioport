@@ -1,8 +1,8 @@
-const fs = require('fs');
-const path = require('path');
-
 const DEFAULT_MODEL = 'gemini-2.5-flash';
-const FIXED_PROMPT_PROFILE = 'sciocile';
+const FIXED_PROMPT_ASSET_PATHS = [
+  '/netlify/functions/prompts/sciocile.txt',
+  '/prompts/sciocile.txt'
+];
 const MODEL_FALLBACKS = [
   'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
@@ -16,7 +16,12 @@ const APP_RUNTIME_GUARDRAILS = [
   '- Nastroje get_sck_context, search_curriculum a get_curriculum_detail zatim nejsou pripojene. Nepredstirej jejich volani.',
   '- Pokud by prompt vyzadoval nepripojeny nastroj, odpovez podle dostupneho kontextu a jasne rekni, ze detailni databazovy zdroj v teto integraci neni pripojeny.'
 ].join('\n');
-const promptCache = new Map();
+const FALLBACK_SYSTEM_PROMPT = [
+  'Jsi ScioBot, profesionalni AI asistent pro ceske ucitele a zaky v aplikaci ScioPort.',
+  'Odpovidej cesky, strucne, jasne a bezpecne.',
+  'Pomahas s portfoliem, reflexi uceni, planovanim a pedagogickymi otazkami.',
+  'Pokud nemas dost kontextu, zeptej se na 1-3 konkretni upresnujici otazky.'
+].join('\n');
 const TOOL_DECLARATIONS = [
   {
     functionDeclarations: [
@@ -80,22 +85,26 @@ const TOOL_DECLARATIONS = [
 ];
 
 function jsonResponse(statusCode, payload) {
-  return {
-    statusCode,
+  return new Response(JSON.stringify(payload), {
+    status: statusCode,
     headers: {
       'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  };
+    }
+  });
 }
 
-function getModel(value) {
-  const requested = String(value || '').trim();
+function cleanText(value, fallback) {
+  const text = String(value || '').trim();
+  return text || fallback || '';
+}
+
+function getModel(value, env) {
+  const requested = cleanText(value);
   if (requested && ALLOWED_MODELS.has(requested)) {
     return requested;
   }
 
-  const configured = String(process.env.GEMINI_MODEL_NAME || '').trim();
+  const configured = cleanText(env && env.GEMINI_MODEL_NAME);
   if (configured && ALLOWED_MODELS.has(configured)) {
     return configured;
   }
@@ -109,52 +118,6 @@ function getModelFallbacks(primaryModel) {
     primary,
     ...MODEL_FALLBACKS.filter((model) => model !== primary)
   ];
-}
-
-function getSecret(name) {
-  const processValue = String(process.env[name] || '').trim();
-  if (processValue) {
-    return processValue;
-  }
-
-  if (
-    typeof Netlify !== 'undefined'
-    && Netlify.env
-    && typeof Netlify.env.get === 'function'
-  ) {
-    return String(Netlify.env.get(name) || '').trim();
-  }
-
-  return '';
-}
-
-function readPrompt(profile) {
-  if (promptCache.has(profile)) {
-    return promptCache.get(profile);
-  }
-
-  const promptPath = path.join(__dirname, 'prompts', `${profile}.txt`);
-  const prompt = fs.readFileSync(promptPath, 'utf8').trim();
-  promptCache.set(profile, prompt);
-  return prompt;
-}
-
-function getSystemInstruction() {
-  const prompt = readPrompt(FIXED_PROMPT_PROFILE);
-  return {
-    parts: [{ text: `${APP_RUNTIME_GUARDRAILS}\n\n${prompt}` }]
-  };
-}
-
-function getPromptDebug() {
-  const prompt = readPrompt(FIXED_PROMPT_PROFILE);
-  return {
-    source: `filesystem:prompts/${FIXED_PROMPT_PROFILE}.txt`,
-    length: prompt.length,
-    hasScioPort: /ScioPort/i.test(prompt),
-    hasScioBot: /ScioBot/i.test(prompt),
-    preview: prompt.slice(0, 220)
-  };
 }
 
 function getNumber(value, fallback, min, max) {
@@ -173,6 +136,57 @@ function getGenerationConfig(value) {
     maxOutputTokens: Math.round(getNumber(config.maxOutputTokens, 512, 1, 1024)),
     topP: getNumber(config.topP, 0.95, 0, 1),
     topK: Math.round(getNumber(config.topK, 40, 1, 100))
+  };
+}
+
+async function getFixedPromptInfo(context) {
+  if (context.env && context.env.ASSETS && typeof context.env.ASSETS.fetch === 'function') {
+    for (const assetPath of FIXED_PROMPT_ASSET_PATHS) {
+      const promptUrl = new URL(assetPath, context.request.url);
+      const response = await context.env.ASSETS.fetch(promptUrl);
+      if (response.ok) {
+        const prompt = cleanText(await response.text());
+        if (prompt) {
+          return {
+            text: prompt,
+            source: `asset:${assetPath}`
+          };
+        }
+      }
+    }
+  }
+
+  const envPrompt = cleanText(context.env && context.env.SCIOCHAT_SYSTEM_PROMPT);
+  if (envPrompt) {
+    return {
+      text: envPrompt,
+      source: 'cloudflare-secret:SCIOCHAT_SYSTEM_PROMPT'
+    };
+  }
+
+  return {
+    text: FALLBACK_SYSTEM_PROMPT,
+    source: 'fallback'
+  };
+}
+
+async function getSystemInstruction(context) {
+  const promptInfo = await getFixedPromptInfo(context);
+  return {
+    parts: [{ text: `${APP_RUNTIME_GUARDRAILS}\n\n${promptInfo.text}` }]
+  };
+}
+
+async function getPromptDebug(context) {
+  const promptInfo = await getFixedPromptInfo(context);
+  return {
+    source: promptInfo.source,
+    length: promptInfo.text.length,
+    hasScioPort: /ScioPort/i.test(promptInfo.text),
+    hasScioBot: /ScioBot/i.test(promptInfo.text),
+    preview: promptInfo.source.startsWith('cloudflare-secret:')
+      ? '[secret hidden]'
+      : promptInfo.text.slice(0, 220)
   };
 }
 
@@ -268,11 +282,6 @@ function getFunctionCalls(responseBody) {
       name: String(call.name),
       args: call.args && typeof call.args === 'object' ? call.args : {}
     }));
-}
-
-function cleanText(value, fallback) {
-  const text = String(value || '').trim();
-  return text || fallback || '';
 }
 
 function normalizeStringList(value, limit) {
@@ -509,33 +518,35 @@ async function generateWithModel(model, apiKey, baseRequestBody, contents) {
   };
 }
 
-exports.handler = async function handler(event) {
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 204,
+export async function onRequest(context) {
+  const request = context.request;
+  const url = new URL(request.url);
+
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
       headers: {
         'Content-Type': 'application/json'
-      },
-      body: ''
-    };
+      }
+    });
   }
 
-  if (event.httpMethod === 'GET' && event.queryStringParameters && event.queryStringParameters.debug === 'prompt') {
-    return jsonResponse(200, getPromptDebug());
+  if (request.method === 'GET' && url.searchParams.get('debug') === 'prompt') {
+    return jsonResponse(200, await getPromptDebug(context));
   }
 
-  if (event.httpMethod !== 'POST') {
+  if (request.method !== 'POST') {
     return jsonResponse(405, { error: 'Method not allowed.' });
   }
 
-  const apiKey = getSecret('GEMINI_API_KEY');
+  const apiKey = cleanText(context.env && context.env.GEMINI_API_KEY);
   if (!apiKey) {
     return jsonResponse(500, { error: 'Gemini API key is not configured on the server.' });
   }
 
   let payload;
   try {
-    payload = JSON.parse(event.body || '{}');
+    payload = await request.json();
   } catch (error) {
     return jsonResponse(400, { error: 'Invalid JSON request body.' });
   }
@@ -545,9 +556,9 @@ exports.handler = async function handler(event) {
     return jsonResponse(400, { error: 'Missing conversation contents.' });
   }
 
-  const model = getModel(payload.model);
+  const model = getModel(payload.model, context.env);
   const baseRequestBody = {
-    systemInstruction: getSystemInstruction(),
+    systemInstruction: await getSystemInstruction(context),
     generationConfig: getGenerationConfig(payload.generationConfig),
     tools: TOOL_DECLARATIONS
   };
@@ -575,4 +586,4 @@ exports.handler = async function handler(event) {
   } catch (error) {
     return jsonResponse(502, { error: String(error && error.message ? error.message : error) });
   }
-};
+}
